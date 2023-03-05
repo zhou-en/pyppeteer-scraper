@@ -30,6 +30,23 @@ class Scraper:
             "[i] using default viewport")
         await self.page.goto(url)
 
+        # wait for specific time
+        await self.page.waitFor(500)
+        # wait for element to appear
+        await self.page.waitForSelector('h1', {'visible': True})
+
+        # click a button
+        # link = await self.page.querySelector("h1")
+        # await link.click()
+
+        # Scroll To Bottom
+        await self.page.evaluate(
+            """{window.scrollBy(0, document.body.scrollHeight);}"""
+        )
+
+        # take a screenshot
+        await self.page.screenshot({'path': 'screenshot.png'})
+
     async def get_full_content(self) -> str:
         content = await self.page.content()
         return content
@@ -81,8 +98,12 @@ async def run():
                 "--no-sandbox",
                 "--disable-setuid-sandbox",
                 "--disable-notifications",
-                "--start-maximized"
-             ],
+                "--start-maximized",
+                # "--proxy-server=ip:port"  # set a proxy server
+                # have to add
+                # await page.authenticate({'username': 'user', 'password': 'password'})
+                # after await browser.newPage()
+            ],
             "ignoreDefaultArgs": ["--disable-extensions", "--enable-automation"]
         },
         "viewPort": {
