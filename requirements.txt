@@ -2,9 +2,11 @@ appdirs==1.4.4
 asttokens==2.2.1
 backcall==0.2.0
 certifi @ file:///croot/certifi_1671487769961/work/certifi
+charset-normalizer==3.0.1
 colorclass==2.2.2
 decorator==5.1.1
 executing==1.2.0
+idna==3.4
 importlib-metadata==6.0.0
 ipython==8.11.0
 jedi==0.18.2
@@ -20,6 +22,7 @@ pyee==8.2.2
 Pygments==2.14.0
 pyppeteer==1.0.2
 pyppeteer-stealth==2.7.4
+requests==2.28.2
 six==1.16.0
 stack-data==0.6.2
 terminaltables==3.1.10
