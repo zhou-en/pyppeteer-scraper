@@ -1,6 +1,5 @@
 import asyncio
 import os
-import sys
 from pprint import pprint
 
 import nest_asyncio
@@ -19,14 +18,10 @@ def get_proxy_auth() -> dict:
     Check if the proxy authentication keys are set
     :return:
     """
-    if not os.environ.get(API_KEY):
-        sys.exit(f"{API_KEY} not set")
-    if not os.environ.get(API_URL):
-        sys.exit(f"{API_URL} not set")
     return {
-        "API_KEY": os.environ.get(API_KEY),
-        "API_USER": os.environ.get(API_USER),
-        "API_URL": os.environ.get(API_URL)
+        "API_KEY": os.environ.get(API_KEY, None),
+        "API_USER": os.environ.get(API_USER, None),
+        "API_URL": os.environ.get(API_URL, None)
     }
 
 
@@ -147,7 +142,8 @@ async def run(proxy: str = None, port: int = None) -> None:
     # Navigate to the target
     target_url = "https://hotels.com/ho237271/simba-run-condos-2bed-2bath-vail-united-states-of-america/"
     # target_url = "https://quotes.toscrape.com/"
-    target_url = f"{scraper.proxy_auth.get(API_URL)}/?api_key={scraper.proxy_auth.get(API_KEY)}&url=" + target_url
+    if scraper.proxy_auth.get(API_URL):
+        target_url = f"{scraper.proxy_auth.get(API_URL)}/?api_key={scraper.proxy_auth.get(API_KEY)}&url=" + target_url
     # target_url = f"https://api.webscrapingapi.com/v1/?api_key={scraper.proxy_auth.get(PROXY_API_KEY)}&url=" + target_url
 
     pprint(f"Navigate to: {target_url}")
