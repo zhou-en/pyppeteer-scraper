@@ -1,6 +1,8 @@
+import os
 import requests
 
-API_KEY = "93c41243-ded3-49de-a08e-ce24749e78dd"
+
+API_KEY = os.environ.get("API_KEY") 
 
 response = requests.get(
     url='https://proxy.scrapeops.io/v1/',
