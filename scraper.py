@@ -1,4 +1,6 @@
 import asyncio
+import os
+import sys
 from pprint import pprint
 
 import nest_asyncio
@@ -7,6 +9,24 @@ from pyppeteer_stealth import stealth
 
 nest_asyncio.apply()
 
+PROXY_API_KEY = "PROXY_API_KEY"
+PROXY_USER = "PROXY_USER"
+
+
+def get_proxy_auth() -> dict:
+    """
+    Check if the proxy authentication keys are set
+    :return:
+    """
+    if not os.environ.get(PROXY_API_KEY):
+        sys.exit(f"{PROXY_API_KEY} not set")
+    if not os.environ.get(PROXY_USER):
+        sys.exit(f"{PROXY_USER} not set")
+    return {
+        "PROXY_API_KEY": os.environ.get(PROXY_API_KEY),
+        "PROXY_USER": os.environ.get(PROXY_USER)
+    }
+
 
 class Scraper:
     def __init__(self, launch_options: dict) -> None:
@@ -14,14 +34,20 @@ class Scraper:
         self.browser = None
         self.options = launch_options.get("options")
         self.viewPort = launch_options.get("viewPort")
+        self.proxy_auth = get_proxy_auth()
 
     async def goto(self, url: str) -> None:
         self.browser = await launch(options=self.options)
         self.page = await self.browser.newPage()
+        # add proxy auth
+        # await self.page.authenticate(
+        #     {
+        #         'username': self.proxy_auth.get(PROXY_USER),
+        #         'password': self.proxy_auth.get(PROXY_API_KEY)
+        #     }
+        # )
         await self.page.setUserAgent(
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/93.0.4577.82 Safari/537.36"
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.5 Safari/605.1.15",
         )
         # make scraper stealth
         await stealth(self.page)
@@ -31,9 +57,9 @@ class Scraper:
         await self.page.goto(url)
 
         # wait for specific time
-        await self.page.waitFor(500)
+        await self.page.waitFor(60000)
         # wait for element to appear
-        await self.page.waitForSelector('h1', {'visible': True})
+        # await self.page.waitForSelector('h1', {'visible': True})
 
         # click a button
         # link = await self.page.querySelector("h1")
@@ -88,7 +114,6 @@ class Scraper:
 
 
 async def run():
-
     # define launch option
     launch_options = {
         "options": {
@@ -99,7 +124,9 @@ async def run():
                 "--disable-setuid-sandbox",
                 "--disable-notifications",
                 "--start-maximized",
-                # "--proxy-server=ip:port"  # set a proxy server
+                "--proxy-server=103.117.192.14:8080"
+                # "--proxy-server=proxy.scrapeops.io:5353"
+                # set a proxy server
                 # have to add
                 # await page.authenticate({'username': 'user', 'password': 'password'})
                 # after await browser.newPage()
@@ -116,10 +143,11 @@ async def run():
     scraper = Scraper(launch_options)
 
     # Navigate to the target
-    url = "https://ca.hotels.com/ho237271/simba-run-condos-2bed-2bath-vail-united-states-of-america/"
-    # url = "https://quotes.toscrape.com/"
-    pprint(f"Navigate to: {url}")
-    await scraper.goto(url)
+    # target_url = "https://ca.hotels.com/ho237271/simba-run-condos-2bed-2bath-vail-united-states-of-america/"
+    target_url = "https://quotes.toscrape.com/"
+    # target_url = f"https://proxy.scrapeops.io/v1/?api_key={scraper.proxy_auth.get(PROXY_API_KEY)}&url=" + target_url
+    pprint(f"Navigate to: {target_url}")
+    await scraper.goto(target_url)
 
     # Type "this is me" inside the input box
     # pprint("Type 'this is me' inside the input box")
