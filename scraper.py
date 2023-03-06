@@ -9,8 +9,9 @@ from pyppeteer_stealth import stealth
 
 nest_asyncio.apply()
 
-PROXY_API_KEY = "PROXY_API_KEY"
-PROXY_USER = "PROXY_USER"
+API_KEY = "API_KEY"
+API_USER = "API_USER"
+API_URL = "API_URL"
 
 
 def get_proxy_auth() -> dict:
@@ -18,13 +19,14 @@ def get_proxy_auth() -> dict:
     Check if the proxy authentication keys are set
     :return:
     """
-    if not os.environ.get(PROXY_API_KEY):
-        sys.exit(f"{PROXY_API_KEY} not set")
-    if not os.environ.get(PROXY_USER):
-        sys.exit(f"{PROXY_USER} not set")
+    if not os.environ.get(API_KEY):
+        sys.exit(f"{API_KEY} not set")
+    if not os.environ.get(API_URL):
+        sys.exit(f"{API_URL} not set")
     return {
-        "PROXY_API_KEY": os.environ.get(PROXY_API_KEY),
-        "PROXY_USER": os.environ.get(PROXY_USER)
+        "API_KEY": os.environ.get(API_KEY),
+        "API_USER": os.environ.get(API_USER),
+        "API_URL": os.environ.get(API_URL)
     }
 
 
@@ -57,7 +59,7 @@ class Scraper:
         await self.page.goto(url)
 
         # wait for specific time
-        await self.page.waitFor(60000)
+        await self.page.waitFor(6000)
         # wait for element to appear
         # await self.page.waitForSelector('h1', {'visible': True})
 
@@ -66,12 +68,12 @@ class Scraper:
         # await link.click()
 
         # Scroll To Bottom
-        await self.page.evaluate(
-            """{window.scrollBy(0, document.body.scrollHeight);}"""
-        )
+        # await self.page.evaluate(
+        #     """{window.scrollBy(0, document.body.scrollHeight);}"""
+        # )
 
         # take a screenshot
-        await self.page.screenshot({'path': 'screenshot.png'})
+        # await self.page.screenshot({'path': 'screenshot.png'})
 
     async def get_full_content(self) -> str:
         content = await self.page.content()
@@ -101,7 +103,7 @@ class Scraper:
             result.append(await text.jsonValue())
         return result
 
-    async def extract_one(self, selector:str, attr: str) -> str:
+    async def extract_one(self, selector: str, attr: str) -> str:
         """
         Locate a single element using querySelector
         :param selector:
@@ -113,7 +115,7 @@ class Scraper:
         return await text.jsonValue()
 
 
-async def run():
+async def run(proxy: str = None, port: int = None) -> None:
     # define launch option
     launch_options = {
         "options": {
@@ -121,11 +123,11 @@ async def run():
             "autoClose": False,
             "args": [
                 "--no-sandbox",
-                "--disable-setuid-sandbox",
+                # "--disable-setuid-sandbox",  # security issue
                 "--disable-notifications",
                 "--start-maximized",
-                "--proxy-server=103.117.192.14:8080"
-                # "--proxy-server=proxy.scrapeops.io:5353"
+                # f"--proxy-server={p.get('ip')}:{p.get('port')}"
+                # f"--proxy-server={proxy}:{port}"
                 # set a proxy server
                 # have to add
                 # await page.authenticate({'username': 'user', 'password': 'password'})
@@ -143,9 +145,11 @@ async def run():
     scraper = Scraper(launch_options)
 
     # Navigate to the target
-    # target_url = "https://ca.hotels.com/ho237271/simba-run-condos-2bed-2bath-vail-united-states-of-america/"
-    target_url = "https://quotes.toscrape.com/"
-    # target_url = f"https://proxy.scrapeops.io/v1/?api_key={scraper.proxy_auth.get(PROXY_API_KEY)}&url=" + target_url
+    target_url = "https://hotels.com/ho237271/simba-run-condos-2bed-2bath-vail-united-states-of-america/"
+    # target_url = "https://quotes.toscrape.com/"
+    target_url = f"{scraper.proxy_auth.get(API_URL)}/?api_key={scraper.proxy_auth.get(API_KEY)}&url=" + target_url
+    # target_url = f"https://api.webscrapingapi.com/v1/?api_key={scraper.proxy_auth.get(PROXY_API_KEY)}&url=" + target_url
+
     pprint(f"Navigate to: {target_url}")
     await scraper.goto(target_url)
 
@@ -171,6 +175,7 @@ async def run():
     # Execute javascript
     # content = await page.evaluate(
     # 'document.body.textContent', force_expr=True)
+
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
