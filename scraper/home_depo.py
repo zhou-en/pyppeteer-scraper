@@ -1,12 +1,11 @@
 import asyncio
-import os
 from pprint import pprint
 
 import nest_asyncio
 from pyppeteer import launch
 from pyppeteer_stealth import stealth
 
-from service.alert import send_slack_alert
+from service.alert import send_slack_message
 
 nest_asyncio.apply()
 
@@ -112,7 +111,7 @@ def send_home_depo_alert(titles, statuses, link):
         if status == "Register":
             title = titles[i]
             msg = f"\"{title}\" is open for registration: {link}"
-            send_slack_alert(msg)
+            send_slack_message(msg)
 
 
 if __name__ == '__main__':
