@@ -5,16 +5,14 @@ import nest_asyncio
 from pyppeteer import launch
 from pyppeteer_stealth import stealth
 
+from logger import CustomLogger
 from service.alert import (
     send_slack_message,
     get_last_alert_date,
     update_last_alert_date,
 )
-import logging
 
-logging.basicConfig(
-    filename="app.log", filemode="w", format="%(name)s - %(levelname)s - %(message)s"
-)
+verbose_log = CustomLogger('home_depo', verbose=True, log_dir='logs')
 
 
 nest_asyncio.apply()
@@ -97,10 +95,10 @@ async def run(proxy: str = None, port: int = None) -> None:
     # Navigate to the target
     target_url = "https://www.homedepot.ca/workshops?store=7265"
 
-    logging.info(f"Navigate to: {target_url}")
+    verbose_log.info(f"Navigate to: {target_url}")
     await scraper.goto(target_url)
 
-    logging.info("Start scraping Kids Workshop...")
+    verbose_log.info("Start scraping Kids Workshop...")
     workshop_titles = await scraper.extract_many(
         "localized-tabs-content h3.hdca-text-title", "textContent"
     )
@@ -127,10 +125,10 @@ def send_home_depo_alert(titles, statuses, link):
 
             # get last alert date
             alert_date = get_last_alert_date("home_depo")
-            logging.info(f"Previous alert was sent on {alert_date}")
+            verbose_log.info(f"Previous alert was sent on {alert_date}")
             current_date = datetime.utcnow().date()
             if not alert_date or alert_date < current_date:
-                logging.info("Sending new alert...")
+                verbose_log.info("Sending new alert...")
                 send_slack_message(msg)
                 update_last_alert_date("home_depo", current_date)
 
