@@ -1,11 +1,12 @@
 import asyncio
+import datetime
 from pprint import pprint
 
 import nest_asyncio
 from pyppeteer import launch
 from pyppeteer_stealth import stealth
 
-from service.alert import send_slack_message
+from service.alert import send_slack_message, get_last_alert_date, update_last_alert_date
 
 nest_asyncio.apply()
 
@@ -110,8 +111,14 @@ def send_home_depo_alert(titles, statuses, link):
     for i, status in enumerate(statuses):
         if status == "Register":
             title = titles[i]
-            msg = f"\"{title}\" is open for registration: {link}"
+            msg = f"@En \"{title}\" is open for registration: {link}"
+
+            # get last alert date
+            # alert_date = get_last_alert_date("home_depo")
+            # current_date = datetime.datetime.utcnow().date()
+            # if not alert_date or alert_date < current_date:
             send_slack_message(msg)
+                # update_last_alert_date("home_depo", current_date)
 
 
 if __name__ == '__main__':
