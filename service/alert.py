@@ -6,13 +6,16 @@ from slack import WebClient
 from slack.errors import SlackApiError
 from dotenv import load_dotenv
 import logging
-logging.basicConfig(filename='app.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s')
+
+logging.basicConfig(
+    filename="app.log", filemode="w", format="%(name)s - %(levelname)s - %(message)s"
+)
 
 load_dotenv()
 
 # Your Slack API token
-slack_token = os.environ.get('SLACK_API_TOKEN')
-channel_id = os.environ.get('CHANNEL_ID')
+slack_token = os.environ.get("SLACK_API_TOKEN")
+channel_id = os.environ.get("CHANNEL_ID")
 
 # Initialize the Slack API client
 client = WebClient(token=slack_token)
@@ -22,13 +25,11 @@ def send_slack_message(message):
     try:
         # Send the message to Slack
         response = client.chat_postMessage(
-            channel=channel_id,
-            text=message,
-            link_names=1
+            channel=channel_id, text=message, link_names=1
         )
 
         # Check if the message was sent successfully
-        if response['ok']:
+        if response["ok"]:
             logging.info("Message sent to Slack successfully.")
         else:
             logging.info("Failed to send message to Slack.")
@@ -63,15 +64,11 @@ def update_last_alert_date(scraper_name: str, new_date: datetime.date):
     date_str = new_date.strftime("%Y-%m-%d")
     file_path = "storage/last_alert.json"
     if os.path.getsize(file_path) == 0:
-        last_alert_data = {
-            scraper_name: date_str
-        }
+        last_alert_data = {scraper_name: date_str}
         with open("storage/last_alert.json", "w") as f:
             json.dump(last_alert_data, f)
     else:
         with open("storage/last_alert.json", "w") as f:
             last_alert_data = json.load(f)
-            last_alert_data.update({
-                scraper_name, date_str
-            })
+            last_alert_data.update({scraper_name, date_str})
             json.dump(last_alert_data, f)

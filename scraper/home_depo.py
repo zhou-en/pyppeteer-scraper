@@ -5,10 +5,16 @@ import nest_asyncio
 from pyppeteer import launch
 from pyppeteer_stealth import stealth
 
-from service.alert import send_slack_message, get_last_alert_date, update_last_alert_date
+from service.alert import (
+    send_slack_message,
+    get_last_alert_date,
+    update_last_alert_date,
+)
 import logging
 
-logging.basicConfig(filename='app.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    filename="app.log", filemode="w", format="%(name)s - %(levelname)s - %(message)s"
+)
 
 
 nest_asyncio.apply()
@@ -35,7 +41,9 @@ class Scraper:
         # wait for specific time
         # await self.page.waitFor(60000)
         # wait for element to appear
-        await self.page.waitForSelector('span[data-title*="Kids Workshops"]', {'visible': True})
+        await self.page.waitForSelector(
+            'span[data-title*="Kids Workshops"]', {"visible": True}
+        )
 
         # click a button
         link = await self.page.querySelector('span[data-title*="Kids Workshops"]')
@@ -78,12 +86,9 @@ async def run(proxy: str = None, port: int = None) -> None:
                 "--disable-notifications",
                 "--start-maximized",
             ],
-            "ignoreDefaultArgs": ["--disable-extensions", "--enable-automation"]
+            "ignoreDefaultArgs": ["--disable-extensions", "--enable-automation"],
         },
-        "viewPort": {
-            "width": 1600,
-            "height": 900
-        }
+        "viewPort": {"width": 1600, "height": 900},
     }
 
     # Initialize the new scraper
@@ -96,9 +101,13 @@ async def run(proxy: str = None, port: int = None) -> None:
     await scraper.goto(target_url)
 
     logging.info("Start scraping Kids Workshop...")
-    workshop_titles = await scraper.extract_many("localized-tabs-content h3.hdca-text-title", "textContent")
-    reg_status = await scraper.extract_many("localized-tabs-content button span.acl-button__label", "textContent")
-    if 'Register' in reg_status:
+    workshop_titles = await scraper.extract_many(
+        "localized-tabs-content h3.hdca-text-title", "textContent"
+    )
+    reg_status = await scraper.extract_many(
+        "localized-tabs-content button span.acl-button__label", "textContent"
+    )
+    if "Register" in reg_status:
         send_home_depo_alert(workshop_titles, reg_status, target_url)
     await scraper.browser.close()
 
@@ -114,7 +123,7 @@ def send_home_depo_alert(titles, statuses, link):
     for i, status in enumerate(statuses):
         if status == "Register":
             title = titles[i]
-            msg = f"@En \"{title}\" is open for registration: {link}"
+            msg = f'@En "{title}" is open for registration: {link}'
 
             # get last alert date
             alert_date = get_last_alert_date("home_depo")
@@ -126,6 +135,6 @@ def send_home_depo_alert(titles, statuses, link):
                 update_last_alert_date("home_depo", current_date)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run())
