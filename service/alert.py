@@ -5,6 +5,8 @@ import os
 from slack import WebClient
 from slack.errors import SlackApiError
 from dotenv import load_dotenv
+import logging
+logging.basicConfig(filename='app.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s')
 
 load_dotenv()
 
@@ -17,7 +19,6 @@ client = WebClient(token=slack_token)
 
 
 def send_slack_message(message):
-    load_dotenv()
     try:
         # Send the message to Slack
         response = client.chat_postMessage(
@@ -28,11 +29,11 @@ def send_slack_message(message):
 
         # Check if the message was sent successfully
         if response['ok']:
-            print("Message sent to Slack successfully.")
+            logging.info("Message sent to Slack successfully.")
         else:
-            print("Failed to send message to Slack.")
+            logging.info("Failed to send message to Slack.")
     except SlackApiError as e:
-        print(f"Error sending message to Slack: {e.response['error']}")
+        logging.error(f"Error sending message to Slack: {e.response['error']}")
 
 
 def get_last_alert_date(scraper_name: str):

@@ -1,12 +1,15 @@
 import asyncio
-import datetime
-from pprint import pprint
+from datetime import datetime
 
 import nest_asyncio
 from pyppeteer import launch
 from pyppeteer_stealth import stealth
 
 from service.alert import send_slack_message, get_last_alert_date, update_last_alert_date
+import logging
+
+logging.basicConfig(filename='app.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s')
+
 
 nest_asyncio.apply()
 
@@ -89,10 +92,10 @@ async def run(proxy: str = None, port: int = None) -> None:
     # Navigate to the target
     target_url = "https://www.homedepot.ca/workshops?store=7265"
 
-    pprint(f"Navigate to: {target_url}")
+    logging.info(f"Navigate to: {target_url}")
     await scraper.goto(target_url)
 
-    pprint("Scrape Kids Workshop")
+    logging.info("Start scraping Kids Workshop...")
     workshop_titles = await scraper.extract_many("localized-tabs-content h3.hdca-text-title", "textContent")
     reg_status = await scraper.extract_many("localized-tabs-content button span.acl-button__label", "textContent")
     if 'Register' in reg_status:
@@ -114,11 +117,13 @@ def send_home_depo_alert(titles, statuses, link):
             msg = f"@En \"{title}\" is open for registration: {link}"
 
             # get last alert date
-            # alert_date = get_last_alert_date("home_depo")
-            # current_date = datetime.datetime.utcnow().date()
-            # if not alert_date or alert_date < current_date:
-            send_slack_message(msg)
-                # update_last_alert_date("home_depo", current_date)
+            alert_date = get_last_alert_date("home_depo")
+            logging.info(f"Previous alert was sent on {alert_date}")
+            current_date = datetime.utcnow().date()
+            if not alert_date or alert_date < current_date:
+                logging.info("Sending new alert...")
+                send_slack_message(msg)
+                update_last_alert_date("home_depo", current_date)
 
 
 if __name__ == '__main__':
