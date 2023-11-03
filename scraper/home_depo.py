@@ -1,4 +1,10 @@
 import asyncio
+import platform
+import sys
+
+if platform.system() != "Darwin":
+    if "/home/pi/Projects/pyppeteer-scraper" not in sys.path:
+        sys.path.append("/home/pi/Projects/pyppeteer-scraper")
 from datetime import datetime
 
 import nest_asyncio
@@ -12,7 +18,7 @@ from service.alert import (
     update_last_alert_date,
 )
 
-verbose_log = CustomLogger('home_depo', verbose=True, log_dir='logs')
+verbose_log = CustomLogger("home_depo", verbose=True, log_dir="logs")
 
 
 nest_asyncio.apply()
