@@ -132,7 +132,7 @@ def send_home_depo_alert(titles, statuses, link):
             # get last alert date
             alert_date = get_last_alert_date("home_depo")
             verbose_log.info(f"Previous alert was sent on {alert_date}")
-            current_date = datetime.utcnow().date()
+            current_date = datetime.now().date()
             if not alert_date or alert_date < current_date:
                 verbose_log.info("Sending new alert...")
                 send_slack_message(msg)
