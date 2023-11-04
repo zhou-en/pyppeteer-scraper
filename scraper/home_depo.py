@@ -105,38 +105,45 @@ async def run(proxy: str = None, port: int = None) -> None:
     await scraper.goto(target_url)
 
     verbose_log.info("Start scraping Kids Workshop...")
-    workshop_titles = await scraper.extract_many(
-        "localized-tabs-content h3.hdca-text-title", "textContent"
-    )
-    reg_status = await scraper.extract_many(
-        "localized-tabs-content button span.acl-button__label", "textContent"
-    )
-    if "Register" in reg_status:
-        send_home_depo_alert(workshop_titles, reg_status, target_url)
+
+    ws_elements = await scraper.page.querySelectorAll("localized-tabs-content > div")
+    for workshop in ws_elements:
+        title_elem = await workshop.querySelector("h3")
+        title = await title_elem.getProperty("textContent")
+        title_str = await title.jsonValue()
+        status_elem = await workshop.querySelector("button")
+        status = await status_elem.getProperty("textContent")
+        status_str = await status.jsonValue()
+        start_elem = await workshop.querySelector("p")
+        start = await start_elem.getProperty("textContent")
+        start_str = await start.jsonValue()
+        if "full" in status_str.lower():
+            continue
+        shop = {"title": title_str, "start": start_str, "status": status_str}
+        if "register" in status_str.lower():
+            send_home_depo_alert(shop, target_url)
     await scraper.browser.close()
 
 
-def send_home_depo_alert(titles, statuses, link):
+def send_home_depo_alert(workshop: dict, link):
     """
     Creates a list of workshops and its status
-    :param link: registration link
-    :param titles: a list of space separated names
-    :param statuses: a list of registration statuses
+    :param workshop: details of workshop, i.e. title, start, status
     :return:
     """
-    for i, status in enumerate(statuses):
-        if status == "Register":
-            title = titles[i]
-            msg = f'@En "{title}" is open for registration: {link}'
 
-            # get last alert date
-            alert_date = get_last_alert_date("home_depo")
-            verbose_log.info(f"Previous alert was sent on {alert_date}")
-            current_date = datetime.now().date()
-            if not alert_date or alert_date < current_date:
-                verbose_log.info("Sending new alert...")
-                send_slack_message(msg)
-                update_last_alert_date("home_depo", current_date)
+    title = workshop.get("title")
+    start = workshop.get("start")
+    msg = f'@En "{title}" on {start} is open for registration: {link}'
+
+    # get last alert date
+    alert_date = get_last_alert_date("home_depo")
+    verbose_log.info(f"Previous alert was sent on {alert_date}")
+    current_date = datetime.now().date()
+    if not alert_date or alert_date < current_date:
+        verbose_log.info("Sending new alert...")
+        send_slack_message(msg)
+        update_last_alert_date("home_depo", current_date)
 
 
 if __name__ == "__main__":
