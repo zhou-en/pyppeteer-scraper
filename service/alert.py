@@ -63,12 +63,17 @@ def update_last_alert_date(scraper_name: str, new_date: datetime.date):
     """
     date_str = new_date.strftime("%Y-%m-%d")
     file_path = "storage/last_alert.json"
+    # empty file
     if os.path.getsize(file_path) == 0:
         last_alert_data = {scraper_name: date_str}
         with open("storage/last_alert.json", "w") as f:
             json.dump(last_alert_data, f)
     else:
-        with open("storage/last_alert.json", "w") as f:
+        # read exiting content
+        with open("storage/last_alert.json", "r") as f:
             last_alert_data = json.load(f)
-            last_alert_data.update({scraper_name, date_str})
+        # update with new data
+        last_alert_data.update({scraper_name: date_str})
+        # write new content
+        with open("storage/last_alert.json", "w") as f:
             json.dump(last_alert_data, f)

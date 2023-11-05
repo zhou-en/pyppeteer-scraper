@@ -5,7 +5,7 @@ import sys
 if platform.system() != "Darwin":
     if "/home/pi/Projects/pyppeteer-scraper" not in sys.path:
         sys.path.append("/home/pi/Projects/pyppeteer-scraper")
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import nest_asyncio
 from pyppeteer import launch
@@ -18,7 +18,9 @@ from service.alert import (
     update_last_alert_date,
 )
 
-verbose_log = CustomLogger("home_depo", verbose=True, log_dir="logs")
+SCRAPER_NAME = "library_event"
+
+ilogger = CustomLogger(SCRAPER_NAME, verbose=True, log_dir="logs")
 
 
 nest_asyncio.apply()
@@ -35,48 +37,14 @@ class Scraper:
         self.browser = await launch(options=self.options)
         self.page = await self.browser.newPage()
         await self.page.setUserAgent(
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.5 "
-            "Safari/605.1.15",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/119.0",
         )
         # make scraper stealth
         await stealth(self.page)
         await self.page.goto(url)
 
         # wait for specific time
-        # await self.page.waitFor(60000)
-        # wait for element to appear
-        await self.page.waitForSelector(
-            'span[data-title*="Kids Workshops"]', {"visible": True}
-        )
-
-        # click a button
-        link = await self.page.querySelector('span[data-title*="Kids Workshops"]')
-        await link.click()
-
-    async def extract_many(self, selector: str, attr: str) -> list:
-        """
-        Select and return a list of elements using queryAll
-        :param selector:
-        :param attr:
-        :return:
-        """
-        result = []
-        elements = await self.page.querySelectorAll(selector)
-        for element in elements:
-            text = await element.getProperty(attr)
-            result.append(await text.jsonValue())
-        return result
-
-    async def extract_one(self, selector: str, attr: str) -> str:
-        """
-        Locate a single element using querySelector
-        :param selector:
-        :param attr:
-        :return:
-        """
-        element = await self.page.querySelector(selector)
-        text = await element.getProperty(attr)
-        return await text.jsonValue()
+        await self.page.waitFor(5000)
 
 
 async def run(proxy: str = None, port: int = None) -> None:
@@ -95,39 +63,65 @@ async def run(proxy: str = None, port: int = None) -> None:
             "ignoreDefaultArgs": ["--disable-extensions", "--enable-automation"],
             "defaultViewport": {"width": 1600, "height": 900},
         },
+
     }
 
     # Initialize the new scraper
     scraper = Scraper(launch_options)
 
     # Navigate to the target
-    target_url = "https://www.homedepot.ca/workshops?store=7265"
+    location = 3090  # Round Prairie Library
+    start_date = datetime.now().strftime("%Y-%m-%d")
+    end_date = (datetime.now() + timedelta(days=180)).date().strftime("%Y-%m-%d")
+    keywords = "code+club"
+    target_url = f"https://saskatoonlibrary.ca/events-guide/results/?startDate={start_date}&endDate={end_date}&ages=all&locations={location}&types=all&keyword={keywords}"
 
-    verbose_log.info(f"Navigate to: {target_url}")
+    ilogger.info(f"Navigate to: {target_url}")
     await scraper.goto(target_url)
 
-    verbose_log.info("Start scraping Kids Workshop...")
+    ilogger.info("Start scraping library events...")
 
-    ws_elements = await scraper.page.querySelectorAll("localized-tabs-content > div")
-    for workshop in ws_elements:
-        title_elem = await workshop.querySelector("h3")
+    event_elements = await scraper.page.querySelectorAll("div.day-event-card")
+    for event in event_elements:
+
+        title_elem = await event.querySelector("h3")
         title = await title_elem.getProperty("textContent")
         title_str = await title.jsonValue()
-        status_elem = await workshop.querySelector("button")
+
+        status_elem = await event.querySelector("div.card-reg")
         status = await status_elem.getProperty("textContent")
         status_str = await status.jsonValue()
-        start_elem = await workshop.querySelector("p")
-        start = await start_elem.getProperty("textContent")
-        start_str = await start.jsonValue()
+
+        dow_elem = await event.querySelector("span.event-dow")
+        dow = await dow_elem.getProperty("textContent")
+        dow_str = await dow.jsonValue()
+
+        event_date_elem = await event.querySelector("span.event-date")
+        event_date = await event_date_elem.getProperty("textContent")
+        event_date_str = await event_date.jsonValue()
+
+        event_month_elem = await event.querySelector("span.event-date")
+        event_month = await event_month_elem.getProperty("textContent")
+        event_month_str = await event_month.jsonValue()
+
+        try:
+            event_month_int = int(event_month_str)
+            event_month_str = event_month_int + 1
+        except Exception as err:
+            ilogger.error(f"Failed to convert month of {event_month_str} to 1-based")
+
+        start_str = f"{event_month_str}-{event_date_str}, {dow_str}"
+
         if "full" in status_str.lower():
             continue
-        shop = {"title": title_str, "start": start_str, "status": status_str}
-        if "register" in status_str.lower():
-            send_home_depo_alert(shop, target_url)
+        else:
+            event_found = {"title": title_str, "start": start_str, "status": status_str}
+            send_library_event_alert(event_found, target_url)
+            break
     await scraper.browser.close()
 
 
-def send_home_depo_alert(workshop: dict, link):
+def send_library_event_alert(workshop: dict, link):
     """
     Creates a list of workshops and its status
     :param workshop: details of workshop, i.e. title, start, status
@@ -139,13 +133,13 @@ def send_home_depo_alert(workshop: dict, link):
     msg = f'@En "{title}" on {start} is open for registration: {link}'
 
     # get last alert date
-    alert_date = get_last_alert_date("home_depo")
-    verbose_log.info(f"Previous alert was sent on {alert_date}")
+    alert_date = get_last_alert_date(SCRAPER_NAME)
+    ilogger.info(f"Previous alert was sent on {alert_date}")
     current_date = datetime.now().date()
     if not alert_date or alert_date < current_date:
-        verbose_log.info("Sending new alert...")
+        ilogger.info("Sending new alert...")
         send_slack_message(msg)
-        update_last_alert_date("home_depo", current_date)
+        update_last_alert_date(SCRAPER_NAME, current_date)
 
 
 if __name__ == "__main__":
