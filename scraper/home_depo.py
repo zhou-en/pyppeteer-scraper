@@ -18,7 +18,7 @@ from service.alert import (
     update_last_alert_date,
 )
 
-verbose_log = CustomLogger("home_depo", verbose=True, log_dir="logs")
+log = CustomLogger("home_depo", verbose=True, log_dir="logs")
 
 
 nest_asyncio.apply()
@@ -103,10 +103,10 @@ async def run(proxy: str = None, port: int = None) -> None:
     # Navigate to the target
     target_url = "https://www.homedepot.ca/workshops?store=7265"
 
-    verbose_log.info(f"Navigate to: {target_url}")
+    log.info(f"Navigate to: {target_url}")
     await scraper.goto(target_url)
 
-    verbose_log.info("Start scraping Kids Workshop...")
+    log.info("Start scraping Kids Workshop...")
 
     ws_elements = await scraper.page.querySelectorAll("localized-tabs-content > div")
     for workshop in ws_elements:
@@ -119,10 +119,12 @@ async def run(proxy: str = None, port: int = None) -> None:
         start_elem = await workshop.querySelector("p")
         start = await start_elem.getProperty("textContent")
         start_str = await start.jsonValue()
-        if "full" in status_str.lower():
+        if "full" in status_str.lower() or "closed" in status_str.lower():
+            log.info(f"{title_str} is not open for registration: {status_str}")
             continue
         shop = {"title": title_str, "start": start_str, "status": status_str}
         if "register" in status_str.lower():
+            log.info(f"{title_str} is open for registration: {status_str}, sending alert...")
             send_home_depo_alert(shop, target_url)
     await scraper.browser.close()
 
@@ -140,10 +142,10 @@ def send_home_depo_alert(workshop: dict, link):
 
     # get last alert date
     alert_date = get_last_alert_date("home_depo")
-    verbose_log.info(f"Previous alert was sent on {alert_date}")
+    log.info(f"Previous alert was sent on {alert_date}")
     current_date = datetime.now().date()
     if not alert_date or alert_date < current_date:
-        verbose_log.info("Sending new alert...")
+        log.info("Sending new alert...")
         send_slack_message(msg)
         update_last_alert_date("home_depo", current_date)
 

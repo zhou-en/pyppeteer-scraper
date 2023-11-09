@@ -20,7 +20,7 @@ from service.alert import (
 
 SCRAPER_NAME = "library_event"
 
-ilogger = CustomLogger(SCRAPER_NAME, verbose=True, log_dir="logs")
+log = CustomLogger(SCRAPER_NAME, verbose=True, log_dir="logs")
 
 
 nest_asyncio.apply()
@@ -76,10 +76,10 @@ async def run(proxy: str = None, port: int = None) -> None:
     keywords = "code+club"
     target_url = f"https://saskatoonlibrary.ca/events-guide/results/?startDate={start_date}&endDate={end_date}&ages=all&locations={location}&types=all&keyword={keywords}"
 
-    ilogger.info(f"Navigate to: {target_url}")
+    log.info(f"Navigate to: {target_url}")
     await scraper.goto(target_url)
 
-    ilogger.info("Start scraping library events...")
+    log.info("Start scraping library events...")
 
     event_elements = await scraper.page.querySelectorAll("div.day-event-card")
     for event in event_elements:
@@ -108,13 +108,15 @@ async def run(proxy: str = None, port: int = None) -> None:
             event_month_int = int(event_month_str)
             event_month_str = event_month_int + 1
         except Exception as err:
-            ilogger.error(f"Failed to convert month of {event_month_str} to 1-based")
+            log.error(f"Failed to convert month of {event_month_str} to 1-based")
 
         start_str = f"{event_month_str}-{event_date_str}, {dow_str}"
 
         if "full" in status_str.lower():
+            log.info(f"{title_str} is not open for registration: {status_str}")
             continue
         else:
+            log.info(f"{title_str} is open for registration: {status_str}")
             event_found = {"title": title_str, "start": start_str, "status": status_str}
             send_library_event_alert(event_found, target_url)
             break
@@ -134,10 +136,10 @@ def send_library_event_alert(workshop: dict, link):
 
     # get last alert date
     alert_date = get_last_alert_date(SCRAPER_NAME)
-    ilogger.info(f"Previous alert was sent on {alert_date}")
+    log.info(f"Previous alert was sent on {alert_date}")
     current_date = datetime.now().date()
     if not alert_date or alert_date < current_date:
-        ilogger.info("Sending new alert...")
+        log.info("Sending new alert...")
         send_slack_message(msg)
         update_last_alert_date(SCRAPER_NAME, current_date)
 

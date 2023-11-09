@@ -20,7 +20,7 @@ from service.alert import (
 
 SCRAPER_NAME = "stonebridge_event"
 
-ilogger = CustomLogger(SCRAPER_NAME, verbose=True, log_dir="logs")
+log = CustomLogger(SCRAPER_NAME, verbose=True, log_dir="logs")
 
 
 nest_asyncio.apply()
@@ -70,10 +70,10 @@ async def run(proxy: str = None, port: int = None) -> None:
     scraper = Scraper(launch_options)
     target_url = "https://www.ourstonebridge.ca/"
 
-    ilogger.info(f"Navigate to: {target_url}")
+    log.info(f"Navigate to: {target_url}")
     await scraper.goto(target_url)
 
-    ilogger.info("Start Stonebridge events...")
+    log.info("Start Stonebridge events...")
 
     event_elements = await scraper.page.querySelectorAll("#menu-item-2452 li")
     for event in event_elements:
@@ -81,8 +81,10 @@ async def run(proxy: str = None, port: int = None) -> None:
         title_elem = await event.querySelector("a")
         title = await title_elem.getProperty("textContent")
         title_str = await title.jsonValue()
+        log.info(f"Going through event: {title_str}")
 
         if "spring" in title_str.lower() or "summer" in title_str.lower():
+            log.info(f"Found potential event: {title_str}")
             event_found = {"title": title_str, "start": "", "status": ""}
             send_stonebridge_event_alert(event_found, target_url)
             break
@@ -101,10 +103,10 @@ def send_stonebridge_event_alert(workshop: dict, link):
 
     # get last alert date
     alert_date = get_last_alert_date(SCRAPER_NAME)
-    ilogger.info(f"Previous alert was sent on {alert_date}")
+    log.info(f"Previous alert was sent on {alert_date}")
     current_date = datetime.now().date()
     if not alert_date or alert_date < current_date:
-        ilogger.info("Sending new alert...")
+        log.info("Sending new alert...")
         send_slack_message(msg)
         update_last_alert_date(SCRAPER_NAME, current_date)
 
