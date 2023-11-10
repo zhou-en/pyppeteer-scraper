@@ -131,4 +131,4 @@ dmypy.json
 .idea
 .iml
 logs/
-storage/
+/storage/last_alert.json
