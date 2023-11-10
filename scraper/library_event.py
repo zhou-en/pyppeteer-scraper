@@ -113,7 +113,7 @@ async def run(proxy: str = None, port: int = None) -> None:
         start_str = f"{event_month_str}-{event_date_str}, {dow_str}"
 
         log.info(f"{title_str} starts on {start_str}: {status_str}")
-        if "full" in status_str.lower():
+        if "full" in status_str.lower() or "closed" in status_str.lower():
             continue
         else:
             log.info(f"{title_str} is open for registration: {status_str}")
