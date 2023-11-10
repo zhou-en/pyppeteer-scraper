@@ -25,6 +25,7 @@ log = CustomLogger(SCRAPER_NAME, verbose=True, log_dir="logs")
 
 nest_asyncio.apply()
 
+MAP_DATA = "data=!3m1!4b1!4m6!3m5!1s0x5304f126678f6d21:0x6286d8c943291d12!8m2!3d52.108115!4d-106.6507629!16s%2Fg%2F12hsmwdl7?entry=ttu"
 
 class Scraper:
     def __init__(self, launch_options: dict) -> None:
@@ -70,7 +71,7 @@ async def run(proxy: str = None, port: int = None) -> None:
     scraper = Scraper(launch_options)
 
     # Navigate to the target
-    location = 3090  # Round Prairie Library
+    location = "3090"  # Round Prairie Library
     start_date = datetime.now().strftime("%Y-%m-%d")
     end_date = (datetime.now() + timedelta(days=180)).date().strftime("%Y-%m-%d")
     keywords = "code+club"
@@ -100,7 +101,7 @@ async def run(proxy: str = None, port: int = None) -> None:
         event_date = await event_date_elem.getProperty("textContent")
         event_date_str = await event_date.jsonValue()
 
-        event_month_elem = await event.querySelector("span.event-date")
+        event_month_elem = await event.querySelector("span.event-month")
         event_month = await event_month_elem.getProperty("textContent")
         event_month_str = await event_month.jsonValue()
 
@@ -117,7 +118,17 @@ async def run(proxy: str = None, port: int = None) -> None:
             continue
         else:
             log.info(f"{title_str} is open for registration: {status_str}")
-            event_found = {"title": title_str, "start": start_str, "status": status_str}
+            reg_elem = await event.querySelector("div[class='card-reg future'")
+            reg_details = await reg_elem.getProperty("textContent")
+            reg_details_str = await reg_details.jsonValue()
+
+            location_elem = await event.querySelector("strong")
+            location_details = await location_elem.getProperty("textContent")
+            location_str = await location_details.jsonValue()
+            location_link = f"[{location_str}](https://www.google.com/maps/place/{location_str.replace(' ', '+')}/{MAP_DATA})"
+
+            event_detail = f"{reg_details_str} at {location_link}"
+            event_found = {"title": title_str, "start": start_str, "status": event_detail}
             send_library_event_alert(event_found, target_url)
             break
     await scraper.browser.close()
@@ -132,7 +143,8 @@ def send_library_event_alert(workshop: dict, link):
 
     title = workshop.get("title")
     start = workshop.get("start")
-    msg = f'@En "{title}" on {start} is open for registration: {link}'
+    status = workshop.get("status")
+    msg = f'@En "{title}" {status} starting on {start} is open for registration: {link}'
 
     # get last alert date
     alert_date = get_last_alert_date(SCRAPER_NAME)

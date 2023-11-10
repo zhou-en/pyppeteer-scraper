@@ -25,7 +25,7 @@ def send_slack_message(message):
     try:
         # Send the message to Slack
         response = client.chat_postMessage(
-            channel=channel_id, text=message, link_names=1
+            channel=channel_id, text=message, link_names=1, mrkdwn=True
         )
 
         # Check if the message was sent successfully
