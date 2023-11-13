@@ -119,7 +119,7 @@ async def run(proxy: str = None, port: int = None) -> None:
         start_elem = await workshop.querySelector("p")
         start = await start_elem.getProperty("textContent")
         start_str = await start.jsonValue()
-        log.info(f"{title_str}: {status_str}")
+        log.info(f"Found event: {title_str}, status: {status_str}")
         if "full" in status_str.lower() or "closed" in status_str.lower():
             continue
         shop = {"title": title_str, "start": start_str, "status": status_str}
