@@ -43,7 +43,7 @@ class Scraper:
         await self.page.goto(url)
 
         # wait for specific time
-        # await self.page.waitFor(60000)
+        await self.page.waitFor(30000)
         # wait for element to appear
         await self.page.waitForSelector(
             'span[data-title*="Kids Workshops"]', {"visible": True}
@@ -109,6 +109,7 @@ async def run(proxy: str = None, port: int = None) -> None:
     log.info("Start scraping Kids Workshop...")
 
     ws_elements = await scraper.page.querySelectorAll("localized-tabs-content > div")
+    log.info(f"{len(ws_elements)} events found")
     for workshop in ws_elements:
         title_elem = await workshop.querySelector("h3")
         title = await title_elem.getProperty("textContent")
