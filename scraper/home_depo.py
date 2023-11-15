@@ -2,9 +2,12 @@ import asyncio
 import platform
 import sys
 
+BROWSER_PATH = "/Applications/Chromium.app/Contents/MacOS/Chromium"
 if platform.system() != "Darwin":
+    BROWSER_PATH = "/usr/bin/chromium"
     if "/home/pi/Projects/pyppeteer-scraper" not in sys.path:
         sys.path.append("/home/pi/Projects/pyppeteer-scraper")
+
 from datetime import datetime
 
 import nest_asyncio
@@ -43,7 +46,7 @@ class Scraper:
         await self.page.goto(url)
 
         # wait for specific time
-        await self.page.waitFor(30000)
+        await self.page.waitFor(10000)
         # wait for element to appear
         await self.page.waitForSelector(
             'span[data-title*="Kids Workshops"]', {"visible": True}
@@ -52,6 +55,8 @@ class Scraper:
         # click a button
         link = await self.page.querySelector('span[data-title*="Kids Workshops"]')
         await link.click()
+        await self.page.waitFor(5000)
+
 
     async def extract_many(self, selector: str, attr: str) -> list:
         """
@@ -94,6 +99,7 @@ async def run(proxy: str = None, port: int = None) -> None:
             ],
             "ignoreDefaultArgs": ["--disable-extensions", "--enable-automation"],
             "defaultViewport": {"width": 1600, "height": 900},
+            "executablePath": BROWSER_PATH
         },
     }
 
