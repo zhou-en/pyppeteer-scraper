@@ -31,3 +31,19 @@ If a Chromium browser is installed already:
 
 If no Chromium is not installed, install it with the follow command and repeat above step:
 `sudo apt install chromium -y`
+
+## Cron Jobs
+```shell
+# run every hour between 7 and 22 o'clock
+0 7-22 * * * cd /home/pi/Projects/pyppeteer-scraper; venv/bin/python scraper/home_depo.py
+
+# run every hour between 7 - 22 o'clock
+0 7-22 * * * cd /home/pi/Projects/pyppeteer-scraper; venv/bin/python scraper/library_event.py
+
+# run at 9am everyday
+0 9 * * * cd /home/pi/Projects/pyppeteer-scraper; venv/bin/python scraper/stonebridge_event.py
+
+
+# clean up logs once a week At 00:00 on Sunday
+0 0 * * 0 cd /home/pi/Projects/pyppeteer-scraper; venv/bin/python logger/cleanup.py
+```
