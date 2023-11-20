@@ -11,7 +11,7 @@ import nest_asyncio
 from pyppeteer import launch
 from pyppeteer_stealth import stealth
 
-from logger import CustomLogger
+from my_logger import CustomLogger
 from service.alert import (
     send_slack_message,
     get_last_alert_date,

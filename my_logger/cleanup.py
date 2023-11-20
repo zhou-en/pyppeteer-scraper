@@ -1,6 +1,6 @@
 import os
 
-from logger import CustomLogger
+from my_logger import CustomLogger
 
 vlog = CustomLogger("cleanup", verbose=True, log_dir="logs")
 

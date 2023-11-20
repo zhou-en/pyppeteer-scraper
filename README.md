@@ -37,21 +37,21 @@ If no Chromium is not installed, install it with the follow command and repeat a
 ### Raspberry Pi
 ```shell
 # run every hour between 7 and 22 o'clock
-0 7-22 * * * cd /home/pi/Projects/pyppeteer-scraper; venv/bin/python scraper/home_depo.py
+0 7-22 * * * cd /home/pi/Projects/pyppeteer-scraper; venv/bin/python scraper/home_depo.py > /tmp/stdout.log 2> /tmp/stderr.log
 
 # run every hour between 7 - 22 o'clock
-0 7-22 * * * cd /home/pi/Projects/pyppeteer-scraper; venv/bin/python scraper/library_event.py
+0 7-22 * * * cd /home/pi/Projects/pyppeteer-scraper; venv/bin/python scraper/library_event.py > /tmp/stdout.log 2> /tmp/stderr.log
 
 # run at 9am everyday
-0 9 * * * cd /home/pi/Projects/pyppeteer-scraper; venv/bin/python scraper/stonebridge_event.py
+0 9 * * * cd /home/pi/Projects/pyppeteer-scraper; venv/bin/python scraper/stonebridge_event.py > /tmp/stdout.log 2> /tmp/stderr.log
 
 
 # clean up logs once a week At 00:00 on Sunday
-0 0 * * 0 cd /home/pi/Projects/pyppeteer-scraper; venv/bin/python logger/cleanup.py
+0 0 * * 0 cd /home/pi/Projects/pyppeteer-scraper; venv/bin/python logger/cleanup.py > /tmp/stdout.log 2> /tmp/stderr.log
 ```
 
 ### Macbook
 ```shell
 # run every hour between 9:00 and 16:00 from Monday to Friday
-0 9-16 * * 1-5 cd /Users/enzhou/Projects/pyppeteer-scraper && /Users/enzhou/anaconda3/envs/pyppeteer/bin/python scraper/home_depo.py
+0 9-16 * * 1-5 cd /Users/enzhou/Projects/pyppeteer-scraper && /Users/enzhou/anaconda3/envs/pyppeteer/bin/python scraper/home_depo.py > /tmp/stdout.log 2> /tmp/stderr.log
 ```

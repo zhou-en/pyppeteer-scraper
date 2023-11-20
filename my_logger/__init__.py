@@ -3,7 +3,7 @@ import logging
 import os
 import sys
 
-from logger.color import Color
+from my_logger.color import Color
 
 
 class CustomLogger(logging.getLoggerClass()):

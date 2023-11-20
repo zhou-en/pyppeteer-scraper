@@ -11,7 +11,7 @@ import nest_asyncio
 from pyppeteer import launch
 from pyppeteer_stealth import stealth
 
-from logger import CustomLogger
+from my_logger import CustomLogger
 from service.alert import (
     send_slack_message,
     get_last_alert_date,
@@ -26,6 +26,7 @@ log = CustomLogger(SCRAPER_NAME, verbose=True, log_dir="logs")
 nest_asyncio.apply()
 
 MAP_DATA = "data=!3m1!4b1!4m6!3m5!1s0x5304f126678f6d21:0x6286d8c943291d12!8m2!3d52.108115!4d-106.6507629!16s%2Fg%2F12hsmwdl7?entry=ttu"
+
 
 class Scraper:
     def __init__(self, launch_options: dict) -> None:

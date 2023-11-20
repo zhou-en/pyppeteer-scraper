@@ -1,6 +1,11 @@
 import asyncio
 import platform
 import sys
+import os
+current = os.path.dirname(os.path.realpath(__file__))
+parent = os.path.dirname(current)
+sys.path.append(parent)
+import my_logger
 
 BROWSER_PATH = "/Applications/Chromium.app/Contents/MacOS/Chromium"
 if platform.system() != "Darwin":
@@ -14,14 +19,13 @@ import nest_asyncio
 from pyppeteer import launch
 from pyppeteer_stealth import stealth
 
-from logger import CustomLogger
 from service.alert import (
     send_slack_message,
     get_last_alert_date,
     update_last_alert_date,
 )
 
-log = CustomLogger("home_depo", verbose=True, log_dir="logs")
+log = my_logger.CustomLogger("home_depo", verbose=True, log_dir="logs")
 
 
 nest_asyncio.apply()
