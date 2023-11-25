@@ -81,7 +81,7 @@ async def run(proxy: str = None, port: int = None) -> None:
     log.info(f"Navigate to: {target_url}")
     await scraper.goto(target_url)
 
-    log.info("Start scraping library events...")
+    log.info("Start scraping events for Round Prairie Library ...")
     result_elem = await scraper.page.querySelector("div.justify-content-center:nth-child(2) > div:nth-child(1)")
     result = await result_elem.getProperty("textContent")
     result_str = await result.jsonValue()
