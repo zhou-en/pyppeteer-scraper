@@ -2,6 +2,7 @@ import asyncio
 import platform
 import sys
 import os
+
 current = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.dirname(current)
 sys.path.append(parent)
@@ -60,7 +61,6 @@ class Scraper:
         await link.click()
         await self.page.waitFor(5000)
 
-
     async def extract_many(self, selector: str, attr: str) -> list:
         """
         Select and return a list of elements using queryAll
@@ -102,7 +102,7 @@ async def run(proxy: str = None, port: int = None) -> None:
             ],
             "ignoreDefaultArgs": ["--disable-extensions", "--enable-automation"],
             "defaultViewport": {"width": 1600, "height": 900},
-            "executablePath": BROWSER_PATH
+            "executablePath": BROWSER_PATH,
         },
     }
 
@@ -134,7 +134,9 @@ async def run(proxy: str = None, port: int = None) -> None:
             continue
         shop = {"title": title_str, "start": start_str, "status": status_str}
         if "register" in status_str.lower():
-            log.info(f"{title_str} is open for registration: {status_str}, sending alert...")
+            log.info(
+                f"{title_str} is open for registration: {status_str}, sending alert..."
+            )
             send_home_depo_alert(shop, target_url)
     await scraper.browser.close()
 
