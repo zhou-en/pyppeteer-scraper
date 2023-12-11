@@ -151,7 +151,7 @@ def send_library_event_alert(workshop: dict, link):
     title = workshop.get("title")
     start = workshop.get("start")
     status = workshop.get("status")
-    msg = f'@En "{title}" {status} starting on {start} is open for registration: {link}'
+    msg = f'*<{link}|{title}>* starting on *{start}* is open for registration: {link}'
 
     # get last alert date
     alert_date = get_last_alert_date(SCRAPER_NAME)

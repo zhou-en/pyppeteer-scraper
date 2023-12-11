@@ -149,8 +149,8 @@ def send_home_depo_alert(workshop: dict, link):
     """
 
     title = workshop.get("title")
-    start = workshop.get("start")
-    msg = f'@En "{title}" on {start} is open for registration: {link}'
+    start = workshop.get("start").strip()
+    msg = f'*<{link}|{title}>* on *{start}* is open for registration: {link}'
 
     # get last alert date
     alert_date = get_last_alert_date("home_depo")

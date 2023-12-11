@@ -1,11 +1,11 @@
 import asyncio
 import platform
 import sys
+from datetime import datetime
 
 if platform.system() != "Darwin":
     if "/home/pi/Projects/pyppeteer-scraper" not in sys.path:
         sys.path.append("/home/pi/Projects/pyppeteer-scraper")
-from datetime import datetime, timedelta
 
 import nest_asyncio
 from pyppeteer import launch
@@ -99,7 +99,7 @@ def send_stonebridge_event_alert(workshop: dict, link):
     """
 
     title = workshop.get("title")
-    msg = f'@En "{title}" is open for registration: {link}'
+    msg = f'*<{link}|{title}>* is open for registration: {link}'
 
     # get last alert date
     alert_date = get_last_alert_date(SCRAPER_NAME)

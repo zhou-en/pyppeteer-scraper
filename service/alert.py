@@ -21,12 +21,38 @@ channel_id = os.environ.get("CHANNEL_ID")
 client = WebClient(token=slack_token)
 
 
+def get_owner_id():
+    """
+    Gets the channel owner ID and tag it in the message
+    :return:
+    """
+    response = client.users_list()
+    users = response["members"]
+    logging.info(f"Getting all users: {users}")
+    for user in users:
+        logging.info(f"User: {user['real_name']}, ID: {user['id']}")
+        if user.get("is_owner"):
+            return user.get("id")
+
+
 def send_slack_message(message):
     try:
         # Send the message to Slack
-        response = client.chat_postMessage(
-            channel=channel_id, text=message, link_names=1, mrkdwn=True
-        )
+        user_id = get_owner_id()
+        message = f"<@{user_id}>, {message}"
+
+        # Compose the message blocks
+        blocks = [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": message,
+                },
+            }
+        ]
+
+        response = client.chat_postMessage(channel=channel_id, blocks=blocks)
 
         # Check if the message was sent successfully
         if response["ok"]:
