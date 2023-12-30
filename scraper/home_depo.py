@@ -59,7 +59,14 @@ class Scraper:
         selector = 'span[data-title*="Kids Workshops"]'
         await self.page.waitForSelector(selector, {"visible": True})
 
-        # click a button
+        # close location select modal
+        close_btn = await self.page.querySelector(
+            "button[class*=acl-reset-button]")
+        if close_btn:
+            await close_btn.click()
+            await self.page.waitFor(5000)
+
+        # click kid diy tab button
         link = await self.page.querySelector(selector)
         await link.click()
         await self.page.waitFor(5000)
