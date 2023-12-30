@@ -1,11 +1,11 @@
 import datetime
 import json
+import logging
 import os
 
+from dotenv import load_dotenv
 from slack import WebClient
 from slack.errors import SlackApiError
-from dotenv import load_dotenv
-import logging
 
 logging.basicConfig(
     filename="app.log", filemode="w", format="%(name)s - %(levelname)s - %(message)s"
@@ -60,7 +60,7 @@ def send_slack_message(message):
         else:
             logging.info("Failed to send message to Slack.")
     except SlackApiError as e:
-        logging.error(f"Error sending message to Slack: {e.response['error']}")
+        logging.error(f"Error sending message to Slack: {e}")
 
 
 def get_last_alert_date(scraper_name: str):

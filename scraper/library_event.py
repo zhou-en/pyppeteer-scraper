@@ -82,13 +82,17 @@ async def run(proxy: str = None, port: int = None) -> None:
     await scraper.goto(target_url)
 
     log.info("Start scraping events for Round Prairie Library ...")
-    result_elem = await scraper.page.querySelector("div.justify-content-center:nth-child(2) > div:nth-child(1)")
-    result = await result_elem.getProperty("textContent")
-    result_str = await result.jsonValue()
-    if "There are no results for your search." in result_str:
-        log.info("There are no results for your search. Please adjust the filters and try again. ")
-        await scraper.browser.close()
-        return
+    # result_elem = await scraper.page.querySelector("div.day-event-card")
+    # if result_elem is None:
+    #     log.info("Failed to find any events.")
+    #     await scraper.browser.close()
+    #     return
+    # result = await result_elem.getProperty("textContent")
+    # result_str = await result.jsonValue()
+    # if "There are no results for your search." in result_str:
+    #     log.info("There are no results for your search. Please adjust the filters and try again. ")
+    #     await scraper.browser.close()
+    #     return
     event_elements = await scraper.page.querySelectorAll("div.day-event-card")
     for event in event_elements:
 

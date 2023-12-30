@@ -1,7 +1,7 @@
 import asyncio
+import os
 import platform
 import sys
-import os
 
 current = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.dirname(current)
@@ -43,7 +43,7 @@ class Scraper:
         self.browser = await launch(options=self.options)
         self.page = await self.browser.newPage()
         await self.page.setUserAgent(
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.4963.0 Safari/537.36",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/119.0",
         )
         # make scraper stealth
         await stealth(self.page)
