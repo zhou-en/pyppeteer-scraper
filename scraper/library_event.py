@@ -8,9 +8,12 @@ parent = os.path.dirname(current)
 sys.path.append(parent)
 import my_logger
 
+BROWSER_PATH = "/Applications/Chromium.app/Contents/MacOS/Chromium"
 if platform.system() != "Darwin":
     if "/home/pi/Projects/pyppeteer-scraper" not in sys.path:
         sys.path.append("/home/pi/Projects/pyppeteer-scraper")
+        BROWSER_PATH = "/usr/bin/chromium-browser"
+
 from datetime import datetime, timedelta
 
 import nest_asyncio

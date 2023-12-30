@@ -9,7 +9,9 @@ parent = os.path.dirname(current)
 sys.path.append(parent)
 import my_logger
 
+BROWSER_PATH = "/Applications/Chromium.app/Contents/MacOS/Chromium"
 if platform.system() != "Darwin":
+    BROWSER_PATH = "/usr/bin/chromium-browser"
     if "/home/pi/Projects/pyppeteer-scraper" not in sys.path:
         sys.path.append("/home/pi/Projects/pyppeteer-scraper")
 
