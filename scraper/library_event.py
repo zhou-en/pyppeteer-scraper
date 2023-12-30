@@ -76,6 +76,7 @@ async def run(proxy: str = None, port: int = None) -> None:
             ],
             "ignoreDefaultArgs": ["--disable-extensions", "--enable-automation"],
             "defaultViewport": {"width": 1600, "height": 900},
+            "executablePath": BROWSER_PATH,
         },
 
     }
