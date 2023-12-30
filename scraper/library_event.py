@@ -1,6 +1,12 @@
 import asyncio
+import os
 import platform
 import sys
+
+current = os.path.dirname(os.path.realpath(__file__))
+parent = os.path.dirname(current)
+sys.path.append(parent)
+import my_logger
 
 if platform.system() != "Darwin":
     if "/home/pi/Projects/pyppeteer-scraper" not in sys.path:
@@ -11,7 +17,6 @@ import nest_asyncio
 from pyppeteer import launch
 from pyppeteer_stealth import stealth
 
-from my_logger import CustomLogger
 from service.alert import (
     send_slack_message,
     get_last_alert_date,
@@ -20,7 +25,7 @@ from service.alert import (
 
 SCRAPER_NAME = "library_event"
 
-log = CustomLogger(SCRAPER_NAME, verbose=True, log_dir="logs")
+log = my_logger.CustomLogger(SCRAPER_NAME, verbose=True, log_dir="logs")
 
 
 nest_asyncio.apply()
