@@ -140,7 +140,7 @@ async def run(proxy: str = None, port: int = None) -> None:
                 f"{title_str} is open for registration: {status_str}, sending alert..."
             )
             send_home_depo_alert(shop, target_url)
-    # await scraper.browser.close()
+    await scraper.browser.close()
 
 
 def send_home_depo_alert(workshop: dict, link):
