@@ -94,7 +94,7 @@ async def run(proxy: str = None, port: int = None) -> None:
     # define launch option
     launch_options = {
         "options": {
-            "headless": False,
+            "headless": True,
             # "timeout": 50000,
             "autoClose": False,
             "args": [
