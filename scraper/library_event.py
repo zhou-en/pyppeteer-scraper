@@ -3,16 +3,20 @@ import os
 import platform
 import sys
 
+from dotenv import load_dotenv
+
 current = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.dirname(current)
 sys.path.append(parent)
 import my_logger
 
-BROWSER_PATH = "/Applications/Chromium.app/Contents/MacOS/Chromium"
+load_dotenv()
+
+BROWSER_PATH = os.environ.get("BROWSER_PATH")
 if platform.system() != "Darwin":
-    if "/home/pi/Projects/pyppeteer-scraper" not in sys.path:
+    if "/home/pi/Projects/pyppeteer-scraper" not in sys.path and "/home/pi" in ",".join(
+            sys.path):
         sys.path.append("/home/pi/Projects/pyppeteer-scraper")
-        BROWSER_PATH = "/usr/bin/chromium-browser"
 
 from datetime import datetime, timedelta
 
