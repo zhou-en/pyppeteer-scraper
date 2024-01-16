@@ -1,17 +1,27 @@
 import asyncio
+import os
 import platform
 import sys
 from datetime import datetime
 
+from dotenv import load_dotenv
+
+current = os.path.dirname(os.path.realpath(__file__))
+parent = os.path.dirname(current)
+sys.path.append(parent)
+import my_logger
+
+load_dotenv()
+BROWSER_PATH = os.environ.get("BROWSER_PATH")
 if platform.system() != "Darwin":
-    if "/home/pi/Projects/pyppeteer-scraper" not in sys.path:
+    sys_paths = ",".join(sys.path)
+    if "/home/pi/Projects/pyppeteer-scraper" not in sys_paths and "/home/pi" in sys_paths:
         sys.path.append("/home/pi/Projects/pyppeteer-scraper")
 
 import nest_asyncio
 from pyppeteer import launch
 from pyppeteer_stealth import stealth
 
-from my_logger import CustomLogger
 from service.alert import (
     send_slack_message,
     get_last_alert_date,
@@ -20,7 +30,7 @@ from service.alert import (
 
 SCRAPER_NAME = "stonebridge_event"
 
-log = CustomLogger(SCRAPER_NAME, verbose=True, log_dir="logs")
+log = my_logger.CustomLogger(SCRAPER_NAME, verbose=True, log_dir="logs")
 
 
 nest_asyncio.apply()
@@ -62,6 +72,7 @@ async def run(proxy: str = None, port: int = None) -> None:
             ],
             "ignoreDefaultArgs": ["--disable-extensions", "--enable-automation"],
             "defaultViewport": {"width": 1600, "height": 900},
+            "executablePath": BROWSER_PATH,
         },
 
     }

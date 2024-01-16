@@ -9,7 +9,7 @@ Web scraper using pyppeteer
 
 ## Environment Variables
 
-### Proxy
+### Proxy (optional)
 - `API_KEY`: proxy server API key
 - `API_URL`: proxy server URL, no trailing slash
   - https://proxy.scrapeops.io/v1
@@ -18,8 +18,15 @@ Web scraper using pyppeteer
   - WebScrapingAPI doesn't need it
 
 ### Slack
-- `SLACK_API_TOKEN`:  
+
+- `SLACK_API_TOKEN`:
 - `CHANNEL_ID`: 
+  - Right-click on the channel name and select `View channel details`, ID is at
+    the bottom of the window
+- `BROWSER_PATH`: path to Chromium browser executable
+  - `/usr/bin/chromium-browser` on Raspberry Pi
+  - `/Applications/Chromium.app/Contents/MacOS/Chromium` on Macbook
+  - `/usr/bin/chromium` on Linux Mint
 
 ## Deployment on Raspberry Pi
 

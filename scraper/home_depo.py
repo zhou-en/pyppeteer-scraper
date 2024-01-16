@@ -1,17 +1,21 @@
 import asyncio
+import os
 import platform
 import sys
-import os
+
+from dotenv import load_dotenv
 
 current = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.dirname(current)
 sys.path.append(parent)
 import my_logger
 
-BROWSER_PATH = "/Applications/Chromium.app/Contents/MacOS/Chromium"
+load_dotenv()
+
+BROWSER_PATH = os.environ.get("BROWSER_PATH")
 if platform.system() != "Darwin":
-    BROWSER_PATH = "/usr/bin/chromium"
-    if "/home/pi/Projects/pyppeteer-scraper" not in sys.path:
+    if "/home/pi/Projects/pyppeteer-scraper" not in sys.path and "/home/pi" in ",".join(
+            sys.path):
         sys.path.append("/home/pi/Projects/pyppeteer-scraper")
 
 from datetime import datetime
@@ -43,21 +47,27 @@ class Scraper:
         self.browser = await launch(options=self.options)
         self.page = await self.browser.newPage()
         await self.page.setUserAgent(
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.4963.0 Safari/537.36",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/119.0",
         )
         # make scraper stealth
         await stealth(self.page)
         await self.page.goto(url)
 
-        # wait for specific time
-        await self.page.waitFor(10000)
+        # # wait for specific time to bypass store selection
+        await self.page.waitFor(3000)
         # wait for element to appear
-        await self.page.waitForSelector(
-            'span[data-title*="Kids Workshops"]', {"visible": True}
-        )
+        selector = 'span[data-title*="Kids Workshops"]'
+        await self.page.waitForSelector(selector, {"visible": True})
 
-        # click a button
-        link = await self.page.querySelector('span[data-title*="Kids Workshops"]')
+        # close location select modal
+        close_btn = await self.page.querySelector(
+            "button[class*=acl-reset-button]")
+        if close_btn:
+            await close_btn.click()
+            await self.page.waitFor(5000)
+
+        # click kid diy tab button
+        link = await self.page.querySelector(selector)
         await link.click()
         await self.page.waitFor(5000)
 
@@ -98,10 +108,9 @@ async def run(proxy: str = None, port: int = None) -> None:
                 "--no-sandbox",
                 "--disable-notifications",
                 "--start-maximized",
-                # "--window-size=1920,1080"
             ],
             "ignoreDefaultArgs": ["--disable-extensions", "--enable-automation"],
-            "defaultViewport": {"width": 1600, "height": 900},
+            "defaultViewport": {"width": 1920, "height": 1080},
             "executablePath": BROWSER_PATH,
         },
     }

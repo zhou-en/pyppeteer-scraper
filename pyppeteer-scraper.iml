@@ -6,7 +6,7 @@
       <sourceFolder url="file://$MODULE_DIR$" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/logs" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.10 (pyppeteer)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="scraper" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>
