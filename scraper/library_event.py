@@ -122,6 +122,7 @@ async def run(proxy: str = None, port: int = None) -> None:
 
         log.info(f"{title_str} starts on {start_str}: {status_str}")
         if "full" in status_str.lower() or "closed" in status_str.lower():
+            log.info("Event is not open for registration!")
             continue
         else:
             log.info(f"{title_str} is open for registration: {status_str}")
@@ -161,6 +162,8 @@ def send_library_event_alert(workshop: dict, link):
         log.info("Sending new alert...")
         send_slack_message(msg)
         update_last_alert_date(SCRAPER_NAME, current_date)
+    else:
+        log.info("No alerts are needed.")
 
 
 if __name__ == "__main__":

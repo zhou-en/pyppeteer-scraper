@@ -84,7 +84,7 @@ async def run(proxy: str = None, port: int = None) -> None:
         log.info(f"Going through event: {title_str}")
 
         if "spring" in title_str.lower() or "summer" in title_str.lower():
-            log.info(f"Found potential event: {title_str}")
+            log.info(f"Found potential events: {title_str}")
             event_found = {"title": title_str, "start": "", "status": ""}
             send_stonebridge_event_alert(event_found, target_url)
             break
@@ -109,6 +109,8 @@ def send_stonebridge_event_alert(workshop: dict, link):
         log.info("Sending new alert...")
         send_slack_message(msg)
         update_last_alert_date(SCRAPER_NAME, current_date)
+    else:
+        log.info("No alerts are needed!")
 
 
 if __name__ == "__main__":

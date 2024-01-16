@@ -8,7 +8,8 @@ parent = os.path.dirname(current)
 sys.path.append(parent)
 import my_logger
 
-BROWSER_PATH = "/Applications/Chromium.app/Contents/MacOS/Chromium"
+# BROWSER_PATH = "/Applications/Chromium.app/Contents/MacOS/Chromium"
+BROWSER_PATH = "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
 if platform.system() != "Darwin":
     BROWSER_PATH = "/usr/bin/chromium"
     if "/home/pi/Projects/pyppeteer-scraper" not in sys.path:
@@ -26,7 +27,8 @@ from service.alert import (
     update_last_alert_date,
 )
 
-log = my_logger.CustomLogger("home_depo", verbose=True, log_dir="logs")
+log = my_logger.CustomLogger("movie", verbose=True, log_dir="logs")
+TARGET_SITE = "https://www.1377x.to/popular-movies"
 
 
 nest_asyncio.apply()
@@ -52,14 +54,14 @@ class Scraper:
         # wait for specific time
         await self.page.waitFor(10000)
         # wait for element to appear
-        await self.page.waitForSelector(
-            'span[data-title*="Kids Workshops"]', {"visible": True}
-        )
+        # await self.page.waitForSelector(
+        #     'span[data-title*="Kids Workshops"]', {"visible": True}
+        # )
 
         # click a button
-        link = await self.page.querySelector('span[data-title*="Kids Workshops"]')
-        await link.click()
-        await self.page.waitFor(5000)
+        # link = await self.page.querySelector('span[data-title*="Kids Workshops"]')
+        # await link.click()
+        # await self.page.waitFor(5000)
 
     async def extract_many(self, selector: str, attr: str) -> list:
         """
@@ -91,7 +93,7 @@ async def run(proxy: str = None, port: int = None) -> None:
     # define launch option
     launch_options = {
         "options": {
-            "headless": True,
+            "headless": False,
             # "timeout": 50000,
             "autoClose": False,
             "args": [
@@ -109,40 +111,39 @@ async def run(proxy: str = None, port: int = None) -> None:
     # Initialize the new scraper
     scraper = Scraper(launch_options)
 
-    # Navigate to the target
-    target_url = "https://www.homedepot.ca/workshops?store=7265"
+    log.info(f"Navigate to: {TARGET_SITE}")
+    await scraper.goto(TARGET_SITE)
 
-    log.info(f"Navigate to: {target_url}")
-    await scraper.goto(target_url)
+    log.info("Start scraping movies...")
 
-    log.info("Start scraping Kids Workshop...")
-
-    ws_elements = await scraper.page.querySelectorAll("localized-tabs-content > div")
-    log.info(f"{len(ws_elements)} events found")
-    for workshop in ws_elements:
-        title_elem = await workshop.querySelector("h3")
+    movies = await scraper.page.querySelectorAll("tbody tr")
+    current_year = datetime.utcnow().year
+    log.info(f"{len(movies)} events found")
+    for movie in movies:
+        title_elem = await movie.querySelector("td.name")
         title = await title_elem.getProperty("textContent")
         title_str = await title.jsonValue()
-        status_elem = await workshop.querySelector("button")
-        status = await status_elem.getProperty("textContent")
-        status_str = await status.jsonValue()
-        start_elem = await workshop.querySelector("p")
-        start = await start_elem.getProperty("textContent")
-        start_str = await start.jsonValue()
-        log.info(f"Found event: {title_str}, status: {status_str}")
-        if "full" in status_str.lower() or "closed" in status_str.lower():
-            log.info("Event is not open for registration!")
-            continue
-        shop = {"title": title_str, "start": start_str, "status": status_str}
-        if "register" in status_str.lower():
-            log.info(
-                f"{title_str} is open for registration: {status_str}"
-            )
-            send_home_depo_alert(shop, target_url)
+        if current_year in title_str:
+            log.info(f"Found movie: {title_str}")
+    #     status_elem = await workshop.querySelector("button")
+    #     status = await status_elem.getProperty("textContent")
+    #     status_str = await status.jsonValue()
+    #     start_elem = await workshop.querySelector("p")
+    #     start = await start_elem.getProperty("textContent")
+    #     start_str = await start.jsonValue()
+    #     log.info(f"Found event: {title_str}, status: {status_str}")
+    #     if "full" in status_str.lower() or "closed" in status_str.lower():
+    #         continue
+    #     shop = {"title": title_str, "start": start_str, "status": status_str}
+    #     if "register" in status_str.lower():
+    #         log.info(
+    #             f"{title_str} is open for registration: {status_str}, sending alert..."
+    #         )
+    #         send_alert(shop, TARGET_SITE)
     await scraper.browser.close()
 
 
-def send_home_depo_alert(workshop: dict, link):
+def send_alert(workshop: dict, link):
     """
     Creates a list of workshops and its status
     :param workshop: details of workshop, i.e. title, start, status
@@ -150,8 +151,8 @@ def send_home_depo_alert(workshop: dict, link):
     """
 
     title = workshop.get("title")
-    start = workshop.get("start").strip()
-    msg = f'*<{link}|{title}>* on *{start}* is open for registration: {link}'
+    start = workshop.get("start")
+    msg = f'@En "{title}" on {start} is open for registration: {link}'
 
     # get last alert date
     alert_date = get_last_alert_date("home_depo")
@@ -161,8 +162,6 @@ def send_home_depo_alert(workshop: dict, link):
         log.info("Sending new alert...")
         send_slack_message(msg)
         update_last_alert_date("home_depo", current_date)
-    else:
-        log.info("No alerts were needed.")
 
 
 if __name__ == "__main__":
