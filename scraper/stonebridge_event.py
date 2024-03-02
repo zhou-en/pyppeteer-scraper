@@ -15,7 +15,10 @@ load_dotenv()
 BROWSER_PATH = os.environ.get("BROWSER_PATH")
 if platform.system() != "Darwin":
     sys_paths = ",".join(sys.path)
-    if "/home/pi/Projects/pyppeteer-scraper" not in sys_paths and "/home/pi" in sys_paths:
+    if (
+        "/home/pi/Projects/pyppeteer-scraper" not in sys_paths
+        and "/home/pi" in sys_paths
+    ):
         sys.path.append("/home/pi/Projects/pyppeteer-scraper")
 
 import nest_asyncio
@@ -74,7 +77,6 @@ async def run(proxy: str = None, port: int = None) -> None:
             "defaultViewport": {"width": 1600, "height": 900},
             "executablePath": BROWSER_PATH,
         },
-
     }
 
     # Initialize the new scraper
@@ -88,17 +90,17 @@ async def run(proxy: str = None, port: int = None) -> None:
 
     event_elements = await scraper.page.querySelectorAll("#menu-item-2452 li")
     for event in event_elements:
-
         title_elem = await event.querySelector("a")
         title = await title_elem.getProperty("textContent")
         title_str = await title.jsonValue()
         log.info(f"Going through event: {title_str}")
 
         if "spring" in title_str.lower() or "summer" in title_str.lower():
-            log.info(f"Found potential events: {title_str}")
-            event_found = {"title": title_str, "start": "", "status": ""}
-            send_stonebridge_event_alert(event_found, target_url)
-            break
+            if "soccer" not in title_str.lower():
+                log.info(f"Found potential events: {title_str}")
+                event_found = {"title": title_str, "start": "", "status": ""}
+                send_stonebridge_event_alert(event_found, target_url)
+                break
     await scraper.browser.close()
 
 
@@ -110,7 +112,7 @@ def send_stonebridge_event_alert(workshop: dict, link):
     """
 
     title = workshop.get("title")
-    msg = f'*<{link}|{title}>* is open for registration: {link}'
+    msg = f"*<{link}|{title}>* is open for registration: {link}"
 
     # get last alert date
     alert_date = get_last_alert_date(SCRAPER_NAME)
