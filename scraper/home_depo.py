@@ -14,8 +14,10 @@ load_dotenv()
 
 BROWSER_PATH = os.environ.get("BROWSER_PATH")
 if platform.system() != "Darwin":
-    if "/home/pi/Projects/pyppeteer-scraper" not in sys.path and "/home/pi" in ",".join(
-            sys.path):
+    if (
+        "/home/pi/Projects/pyppeteer-scraper" not in sys.path
+        and "/home/pi" in ",".join(sys.path)
+    ):
         sys.path.append("/home/pi/Projects/pyppeteer-scraper")
 
 from datetime import datetime
@@ -51,7 +53,7 @@ class Scraper:
         )
         # make scraper stealth
         await stealth(self.page)
-        await self.page.goto(url)
+        await self.page.goto(url, {"waitUntil": "load", "timeout": 600000})
 
         # # wait for specific time to bypass store selection
         await self.page.waitFor(3000)
@@ -60,8 +62,7 @@ class Scraper:
         await self.page.waitForSelector(selector, {"visible": True})
 
         # close location select modal
-        close_btn = await self.page.querySelector(
-            "button[class*=acl-reset-button]")
+        close_btn = await self.page.querySelector("button[class*=acl-reset-button]")
         if close_btn:
             await close_btn.click()
             await self.page.waitFor(5000)
@@ -144,9 +145,7 @@ async def run(proxy: str = None, port: int = None) -> None:
             continue
         shop = {"title": title_str, "start": start_str, "status": status_str}
         if "register" in status_str.lower():
-            log.info(
-                f"{title_str} is open for registration: {status_str}"
-            )
+            log.info(f"{title_str} is open for registration: {status_str}")
             send_home_depo_alert(shop, target_url)
     await scraper.browser.close()
 
@@ -160,7 +159,7 @@ def send_home_depo_alert(workshop: dict, link):
 
     title = workshop.get("title")
     start = workshop.get("start").strip()
-    msg = f'*<{link}|{title}>* on *{start}* is open for registration: {link}'
+    msg = f"*<{link}|{title}>* on *{start}* is open for registration: {link}"
 
     # get last alert date
     alert_date = get_last_alert_date("home_depo")
