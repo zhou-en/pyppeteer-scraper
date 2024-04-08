@@ -59,7 +59,7 @@ class Scraper:
         await self.page.waitFor(3000)
         # wait for element to appear
         selector = 'span[data-title*="Kids Workshops"]'
-        await self.page.waitForSelector(selector, {"visible": True})
+        await self.page.waitForSelector(selector, {"visible": True, "timeout": 600000})
 
         # close location select modal
         close_btn = await self.page.querySelector("button[class*=acl-reset-button]")
