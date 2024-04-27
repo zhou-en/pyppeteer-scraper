@@ -2,6 +2,7 @@ import asyncio
 import os
 import platform
 import sys
+import json
 
 from dotenv import load_dotenv
 
@@ -14,9 +15,8 @@ load_dotenv()
 
 BROWSER_PATH = os.environ.get("BROWSER_PATH")
 if platform.system() != "Darwin":
-    if (
-        "/home/pi/Projects/pyppeteer-scraper" not in sys.path
-        and "/home/pi" in ",".join(sys.path)
+    if "/home/pi/Projects/pyppeteer-scraper" not in sys.path and "/home/pi" in ",".join(
+        sys.path
     ):
         sys.path.append("/home/pi/Projects/pyppeteer-scraper")
 
@@ -120,7 +120,10 @@ async def run(proxy: str = None, port: int = None) -> None:
     scraper = Scraper(launch_options)
 
     # Navigate to the target
-    target_url = "https://www.homedepot.ca/workshops?store=7265"
+    # target_url = "https://www.homedepot.ca/workshops?store=7265"
+    target_url = (
+        "https://www.homedepot.ca/api/workshopsvc/v1/workshops/all?storeId=7265&lang=en"
+    )
 
     log.info(f"Navigate to: {target_url}")
     await scraper.goto(target_url)
@@ -173,6 +176,44 @@ def send_home_depo_alert(workshop: dict, link):
         log.info("No alerts were needed.")
 
 
+async def run2(proxy: str = None, port: int = None) -> None:
+    from playwright.async_api import async_playwright
+
+    target_url = (
+        "https://www.homedepot.ca/api/workshopsvc/v1/workshops/all?storeId=7265&lang=en"
+    )
+
+    async with async_playwright() as playwright:
+        context = await playwright.request.new_context()
+        response = await context.get(target_url)
+        content = await response.json()
+        log.info(f"{json.dumps(content['workshopEventWsDTO'], indent=4)}")
+        for event in content['workshopEventWsDTO']:
+            event_type = event.get("workshopType", "")
+            seats_left = event.get("remainingSeats")
+            status = event.get("workshopStatus")
+            details = event.get("eventType")
+            title = details.get("name")
+            start = event.get("eventDate")
+            if event_type == "KID" and status == "ACTIVE":
+                if seats_left > 0:
+                    # get last alert date
+                    alert_date = get_last_alert_date("home_depo")
+                    log.info(f"Previous alert was sent on {alert_date}")
+                    current_date = datetime.now().date()
+                    if not alert_date or alert_date < current_date:
+                        log.info("Sending new alert...")
+                        link = "https://www.homedepot.ca/workshops?store=7265"
+                        msg = f"*<{link}|{title}>* starts on *{start}* is open for registration: {link}"
+                        send_slack_message(msg)
+                        update_last_alert_date("home_depo", current_date)
+                    else:
+                        log.info("No alerts were needed.")
+                else:
+                    log.info(f"{title} starts on {start} is fully registed")
+            else:
+                log.info(f"{title} is not active or for kids")
+
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(run())
+    loop.run_until_complete(run2())

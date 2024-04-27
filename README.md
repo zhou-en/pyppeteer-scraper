@@ -2,6 +2,9 @@
 
 Web scraper using pyppeteer
 
+## Diagram
+![alt text](image.png)
+
 ## References
 
 - https://github.com/pyppeteer/pyppeteer
@@ -20,7 +23,7 @@ Web scraper using pyppeteer
 ### Slack
 
 - `SLACK_API_TOKEN`:
-- `CHANNEL_ID`: 
+- `CHANNEL_ID`:
   - Right-click on the channel name and select `View channel details`, ID is at
     the bottom of the window
 - `BROWSER_PATH`: path to Chromium browser executable
@@ -29,6 +32,12 @@ Web scraper using pyppeteer
   - `/usr/bin/chromium` on Linux Mint
 
 ## Deployment on Raspberry Pi
+
+### Use Playwright as scraper
+```sh
+pip install playwright
+playwright install
+```
 
 ### OSError: [Errno 8] Exec format error: '/home/pi/.local/share/pyppeteer/local-chromium/588429/chrome-linux/chrome
 If a Chromium browser is installed already:
