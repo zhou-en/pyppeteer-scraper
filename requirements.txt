@@ -35,7 +35,7 @@ ptyprocess==0.7.0
 pure-eval==0.2.2
 pyee==11.1.0
 Pygments==2.14.0
-pyppeteer==1.0.2
+pyppeteer==2.0.0
 pyppeteer-stealth==2.7.4
 python-dotenv==1.0.0
 requests==2.28.2
