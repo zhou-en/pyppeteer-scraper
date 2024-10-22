@@ -9,6 +9,7 @@ Web scraper using pyppeteer
 
 - https://github.com/pyppeteer/pyppeteer
 - https://www.webscrapingapi.com/pyppeteer?utm_source=pocket_saves
+- https://blog.apify.com/python-playwright/
 
 ## Environment Variables
 

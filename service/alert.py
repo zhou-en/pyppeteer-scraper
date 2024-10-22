@@ -2,6 +2,7 @@ import datetime
 import json
 import logging
 import os
+import sys
 
 from dotenv import load_dotenv
 from slack import WebClient
@@ -16,6 +17,9 @@ load_dotenv()
 # Your Slack API token
 slack_token = os.environ.get("SLACK_API_TOKEN")
 channel_id = os.environ.get("CHANNEL_ID")
+if not (slack_token and channel_id):
+    logging.error("No Slack token or channel ID found.")
+    sys.exit(1)
 
 # Initialize the Slack API client
 client = WebClient(token=slack_token)
