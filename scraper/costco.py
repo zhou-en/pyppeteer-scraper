@@ -10,11 +10,7 @@ from selenium.webdriver.common.by import By
 from time import sleep
 from datetime import datetime
 from dotenv import load_dotenv
-from service.alert import (
-    send_slack_message,
-    get_last_alert_date,
-    update_last_alert_date,
-)
+
 
 current = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.dirname(current)
@@ -22,6 +18,12 @@ sys.path.append(parent)
 import my_logger
 
 load_dotenv()
+
+from service.alert import (
+    send_slack_message,
+    get_last_alert_date,
+    update_last_alert_date,
+)
 
 BROWSER_PATH = os.environ.get("BROWSER_PATH")
 if platform.system() != "Darwin":
