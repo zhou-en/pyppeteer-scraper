@@ -1,34 +1,10 @@
-
-import os
-import platform
-import sys
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from time import sleep
-from datetime import datetime
-from dotenv import load_dotenv
-from service.alert import (
-    send_slack_message,
-    get_last_alert_date,
-    update_last_alert_date,
-)
-
-current = os.path.dirname(os.path.realpath(__file__))
-parent = os.path.dirname(current)
-sys.path.append(parent)
-import my_logger
-
-load_dotenv()
-
-BROWSER_PATH = os.environ.get("BROWSER_PATH")
-if platform.system() != "Darwin":
-    if "/home/pi/Projects/pyppeteer-scraper" not in sys.path and "/home/pi" in ",".join(
-        sys.path
-    ):
-        sys.path.append("/home/pi/Projects/pyppeteer-scraper")
+import platform
 
 
 # Set up options for headless Chrome
@@ -42,9 +18,10 @@ options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) Apple
 options.add_argument("--disable-gpu")  # Disable GPU acceleration
 options.add_argument("--window-size=1920,1080")  # Set window size
 
-link = "https://www.costco.ca/aiden-%2526-ivy-6-piece-fabric-sectional%2c-grey.product.4000207338.html?langId=-24&province=SK&sh=true&nf=true"
+
 # Set the path to the Chromedriver
 DRIVER_PATH = '/usr/bin/chromedriver'
+
 # Check if the operating system is macOS
 if platform.system() == 'Darwin':  # macOS
     DRIVER_PATH = '/opt/homebrew/bin/chromedriver'
@@ -52,13 +29,9 @@ if platform.system() == 'Darwin':  # macOS
 # Initialize Chrome with the specified options
 driver = webdriver.Chrome(options=options)
 
-
-SCRAPER_NAME = "costco"
-log = my_logger.CustomLogger(SCRAPER_NAME, verbose=True, log_dir="logs")
-
 # Navigate to the Nintendo website
 try:
-    driver.get(link)
+    driver.get("https://www.costco.ca/aiden-%2526-ivy-6-piece-fabric-sectional%2c-grey.product.4000207338.html?langId=-24&province=SK&sh=true&nf=true")
     sleep(5)
     try:
         cookie_button = WebDriverWait(driver, 3).until(
@@ -101,22 +74,13 @@ try:
         EC.presence_of_element_located((By.CSS_SELECTOR, "#pull-right-price .value"))
     )
     price = price_element.text
-    log.info(f"The price of the item is: ${price}")
+    print(f"The price of the item is: ${price}")
 
     # Check if the value indicates out of stock
     if button_value.lower() == "out of stock":
-        log.info("The item is out of stock.")
+        print("The item is out of stock.")
     else:
-        # get last alert date
-        alert_date = get_last_alert_date("costco")
-        if alert_date:
-            log.info(f"Previous alert was sent on {alert_date}")
-        current_date = datetime.now().date()
-        if not alert_date or alert_date < current_date:
-            log.info("Sending new alert...")
-            msg = f"*<{link}|Aiden & Ivy 6-piece Fabric Sectional, Grey>* is available: {link}"
-            send_slack_message(msg)
-            update_last_alert_date("costco", current_date)
+        print("The item is available.")
 finally:
     # Output the page source to the console
     # print(driver.page_source)

@@ -72,3 +72,10 @@ If no Chromium is not installed, install it with the follow command and repeat a
 # run every hour between 9:00 and 16:00 from Monday to Friday
 0 9-16 * * 1-5 cd /Users/enzhou/Projects/pyppeteer-scraper && /Users/enzhou/anaconda3/envs/pyppeteer/bin/python scraper/home_depo.py > /tmp/stdout.log 2> /tmp/stderr.log
 ```
+
+### Costco Scrpaer
+
+- Install `chromedriver` on raspberry pi: `sudo apt-get install chromium-chromedriver`
+  - path: `/usr/bin/chromedriver`
+  - On MacOS: `brew install chromedriver`
+    - path: `/opt/homebrew/bin/chromedriver`
