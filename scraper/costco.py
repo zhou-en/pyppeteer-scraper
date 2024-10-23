@@ -52,7 +52,7 @@ if platform.system() == 'Darwin':  # macOS
     DRIVER_PATH = '/opt/homebrew/bin/chromedriver'
 
 # Initialize Chrome with the specified options
-driver = webdriver.Chrome(executable_path="", options=options)
+driver = webdriver.Chrome(options=options)
 
 
 SCRAPER_NAME = "costco"
