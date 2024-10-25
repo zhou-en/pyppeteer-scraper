@@ -31,7 +31,7 @@ from service.alert import (
 options = Options()
 options.headless = True  # Enable headless mode for invisible operation
 options.add_argument("--window-size=1920,1200")  # Define the window size of the browser
-# options.add_argument("--headless")  # Run in headless mode
+options.add_argument("--headless")  # Run in headless mode
 options.add_argument("--no-sandbox")  # Bypass OS security model
 options.add_argument("--disable-dev-shm-usage")  # Overcome limited resource problems
 options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36")
