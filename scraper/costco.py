@@ -27,14 +27,6 @@ from service.alert import (
     update_last_alert_date,
 )
 
-BROWSER_PATH = os.environ.get("BROWSER_PATH")
-if platform.system() != "Darwin":
-    if "/home/pi/Projects/pyppeteer-scraper" not in sys.path and "/home/pi" in ",".join(
-        sys.path
-    ):
-        sys.path.append("/home/pi/Projects/pyppeteer-scraper")
-
-
 # Set up options for headless Chrome
 options = Options()
 options.headless = True  # Enable headless mode for invisible operation
@@ -74,37 +66,37 @@ try:
         cookie_button.click()
     except Exception as e:
         print("No cookie consent prompt found or an error occurred:", e)
-    sleep(3)
+    sleep(1)
 
     # Wait for the "Change Delivery Postal Code" link to be present and click it
-    change_zip_code_link = WebDriverWait(driver, 5).until(
+    change_zip_code_link = WebDriverWait(driver, 1).until(
         EC.element_to_be_clickable((By.CSS_SELECTOR, "#out-of-stock-zip-code + a"))
     )
     change_zip_code_link.click()
 
     # Wait for the zip code input field to be present and fill it
-    zip_code_field = WebDriverWait(driver, 3).until(
+    zip_code_field = WebDriverWait(driver, 2).until(
         EC.presence_of_element_located((By.ID, "eddZipCodeField"))
     )
     zip_code_field.clear()  # Clear any pre-filled text
     zip_code_field.send_keys("S7T 0J6")  # Fill in the zip code
 
     # Wait for the submit button to be clickable and click it
-    submit_button = WebDriverWait(driver, 5).until(
+    submit_button = WebDriverWait(driver, 3).until(
         EC.element_to_be_clickable((By.ID, "edd-check-button"))
     )
     submit_button.click()
     sleep(1)
 
     # Wait for the "add-to-cart" input button to be present
-    add_to_cart_button = WebDriverWait(driver, 5).until(
+    add_to_cart_button = WebDriverWait(driver, 3).until(
         EC.presence_of_element_located((By.ID, "add-to-cart-btn"))
     )
 
     # Retrieve the value of the button
     button_value = add_to_cart_button.get_attribute("value")
     # Now get the price from the specified element
-    price_element = WebDriverWait(driver, 3).until(
+    price_element = WebDriverWait(driver, 1).until(
         EC.presence_of_element_located((By.CSS_SELECTOR, "#pull-right-price .value"))
     )
     price = price_element.text
