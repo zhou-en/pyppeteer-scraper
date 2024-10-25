@@ -7,6 +7,8 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+
 from time import sleep
 from datetime import datetime
 from dotenv import load_dotenv
@@ -42,17 +44,20 @@ options.add_argument("--no-sandbox")  # Bypass OS security model
 options.add_argument("--disable-dev-shm-usage")  # Overcome limited resource problems
 options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36")
 options.add_argument("--disable-gpu")  # Disable GPU acceleration
-options.add_argument("--window-size=1920,1080")  # Set window size
+options.binary_location = "/usr/bin/chromium-browser"
 
 link = "https://www.costco.ca/aiden-%2526-ivy-6-piece-fabric-sectional%2c-grey.product.4000207338.html?langId=-24&province=SK&sh=true&nf=true"
-# Set the path to the Chromedriver
+# Set the path to the installed Chromium driver
 DRIVER_PATH = '/usr/bin/chromedriver'
+
+# Set up the Service
+service = Service(DRIVER_PATH)
 # Check if the operating system is macOS
 if platform.system() == 'Darwin':  # macOS
     DRIVER_PATH = '/opt/homebrew/bin/chromedriver'
 
 # Initialize Chrome with the specified options
-driver = webdriver.Chrome(options=options)
+driver = webdriver.Chrome(service=service, options=options)
 
 
 SCRAPER_NAME = "costco"
