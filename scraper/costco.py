@@ -31,7 +31,7 @@ from service.alert import (
 options = Options()
 options.headless = True  # Enable headless mode for invisible operation
 options.add_argument("--window-size=1920,1200")  # Define the window size of the browser
-options.add_argument("--headless")  # Run in headless mode
+# options.add_argument("--headless")  # Run in headless mode
 options.add_argument("--no-sandbox")  # Bypass OS security model
 options.add_argument("--disable-dev-shm-usage")  # Overcome limited resource problems
 options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36")
@@ -41,13 +41,13 @@ options.binary_location = "/usr/bin/chromium-browser"
 link = "https://www.costco.ca/aiden-%2526-ivy-6-piece-fabric-sectional%2c-grey.product.4000207338.html?langId=-24&province=SK&sh=true&nf=true"
 # Set the path to the installed Chromium driver
 DRIVER_PATH = '/usr/bin/chromedriver'
-
-# Set up the Service
-service = Service(DRIVER_PATH)
 # Check if the operating system is macOS
 if platform.system() == 'Darwin':  # macOS
     DRIVER_PATH = '/opt/homebrew/bin/chromedriver'
+    options.binary_location = ""
 
+# Set up the Service
+service = Service(DRIVER_PATH)
 # Initialize Chrome with the specified options
 driver = webdriver.Chrome(service=service, options=options)
 
@@ -58,7 +58,7 @@ log = my_logger.CustomLogger(SCRAPER_NAME, verbose=True, log_dir="logs")
 # Navigate to the Nintendo website
 try:
     driver.get(link)
-    sleep(5)
+    # sleep(5)
     try:
         cookie_button = WebDriverWait(driver, 3).until(
             EC.element_to_be_clickable((By.ID, "onetrust-accept-btn-handler"))
@@ -66,7 +66,7 @@ try:
         cookie_button.click()
     except Exception as e:
         print("No cookie consent prompt found or an error occurred:", e)
-    sleep(1)
+    # sleep(1)
 
     # Wait for the "Change Delivery Postal Code" link to be present and click it
     change_zip_code_link = WebDriverWait(driver, 1).until(
@@ -86,7 +86,7 @@ try:
         EC.element_to_be_clickable((By.ID, "edd-check-button"))
     )
     submit_button.click()
-    sleep(1)
+    sleep(2)
 
     # Wait for the "add-to-cart" input button to be present
     add_to_cart_button = WebDriverWait(driver, 3).until(
