@@ -65,7 +65,7 @@ try:
         )
         cookie_button.click()
     except Exception as e:
-        print("No cookie consent prompt found or an error occurred:", e)
+        log.error("No cookie consent prompt found or an error occurred:", e)
     # sleep(1)
 
     # Wait for the "Change Delivery Postal Code" link to be present and click it
