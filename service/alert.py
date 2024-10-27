@@ -66,12 +66,14 @@ def send_slack_message(message, screenshot_path=None):
 
         # Upload the screenshot if provided
         if screenshot_path:
+            logging.info(f"Start uploading screenshot: {screenshot_path}")
             response = client.files_upload(
                 channels=channel_id,
                 file=screenshot_path,
                 title="Here is a screenshot when the item is available",
                 initial_comment="Here is a screenshot when the item is available!"
             )
+            logging.info(f"Uploaded screenshot: {response}")
             if response["ok"]:
                 logging.info("Screenshot sent to Slack successfully.")
             else:
