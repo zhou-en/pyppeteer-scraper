@@ -39,7 +39,7 @@ def get_owner_id():
             return user.get("id")
 
 
-def send_slack_message(message):
+def send_slack_message(message, screenshot_path=None):
     try:
         # Send the message to Slack
         user_id = get_owner_id()
@@ -63,6 +63,20 @@ def send_slack_message(message):
             logging.info("Message sent to Slack successfully.")
         else:
             logging.info("Failed to send message to Slack.")
+
+        # Upload the screenshot if provided
+        if screenshot_path:
+            response = client.files_upload(
+                channels=channel_id,
+                file=screenshot_path,
+                title="Here is a screenshot when the item is available",
+                initial_comment="Here is a screenshot when the item is available!"
+            )
+            if response["ok"]:
+                logging.info("Screenshot sent to Slack successfully.")
+            else:
+                logging.info("Failed to send screenshot to Slack.")
+
     except SlackApiError as e:
         logging.error(f"Error sending message to Slack: {e}")
 
