@@ -111,7 +111,7 @@ try:
         current_date = datetime.now().date()
         if not alert_date or alert_date < current_date:
             today = datetime.now().strftime("%Y-%m-%d")
-            screenshot_name = f"storage/screenshot_{today}.png"
+            screenshot_name = f"screenshot_{today}.png"
             if not os.path.isfile(screenshot_name):
                 log.info("Taking a screenshot ...")
                 driver.save_screenshot(screenshot_name)
