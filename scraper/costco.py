@@ -118,7 +118,7 @@ try:
                 log.info(f"Screenshot saved as {screenshot_name}")
             log.info("Sending new alert...")
             msg = f"*<{link}|Aiden & Ivy 6-piece Fabric Sectional, Grey>* is available: {link}"
-            send_slack_message(msg)
+            send_slack_message(msg, screenshot_path=screenshot_name)
             update_last_alert_date("costco", current_date)
 
 finally:
