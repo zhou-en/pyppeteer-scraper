@@ -3,6 +3,9 @@ import os
 import platform
 import sys
 from datetime import datetime
+from time import sleep
+
+from PIL import Image
 from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -10,7 +13,6 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-from time import sleep
 
 current = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.dirname(current)
@@ -112,13 +114,22 @@ try:
         if not alert_date or alert_date < current_date:
             today = datetime.now().strftime("%Y-%m-%d")
             screenshot_name = f"storage/screenshot_{today}.png"
+            jpeg_path = ""
             if not os.path.isfile(screenshot_name):
                 log.info("Taking a screenshot ...")
                 driver.save_screenshot(screenshot_name)
                 log.info(f"Screenshot saved as {screenshot_name}")
+
+                image = Image.open(screenshot_name)
+                jpeg_path = screenshot_name.replace(".png", ".jpeg")
+                image = image.convert(
+                    "RGB")  # JPEG doesn't support transparency
+                image.save(jpeg_path, "JPEG")
+                log.info(f"Screenshot converted to {jpeg_path}")
+
             log.info("Sending new alert...")
             msg = f"*<{link}|Aiden & Ivy 6-piece Fabric Sectional, Grey>* is available: {link}"
-            send_slack_message(msg, screenshot_path=screenshot_name)
+            send_slack_message(msg, screenshot_path=jpeg_path)
             update_last_alert_date("costco", current_date)
 
 finally:

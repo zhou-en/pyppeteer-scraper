@@ -31,6 +31,7 @@ parso==0.8.3
 pathspec==0.11.2
 pexpect==4.8.0
 pickleshare==0.7.5
+pillow==11.0.0
 platformdirs==3.11.0
 playwright==1.43.0
 prompt-toolkit==3.0.38
@@ -39,7 +40,7 @@ pure-eval==0.2.2
 pyee==11.1.0
 Pygments==2.14.0
 pyppeteer==2.0.0
-pyppeteer_stealth==2.7.4
+pyppeteer-stealth==2.7.4
 PySocks==1.7.1
 python-dotenv==1.0.0
 requests==2.28.2
