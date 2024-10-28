@@ -8,7 +8,6 @@ from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.utils import formataddr
 
 from dotenv import load_dotenv
 from slack import WebClient
@@ -155,7 +154,7 @@ def send_email_with_attachment(sender_email, sender_name, sender_password,
     """
     # Create email message
     msg = MIMEMultipart()
-    msg["From"] = formataddr((sender_name, sender_email))
+    msg["From"] = sender_name + " <" + sender_email + ">"
     msg["To"] = ", ".join(recipients)
     msg["Subject"] = subject
     msg.attach(MIMEText(body, "plain"))
