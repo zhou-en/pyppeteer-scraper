@@ -2,7 +2,13 @@ import datetime
 import json
 import logging
 import os
+import smtplib
 import sys
+from email import encoders
+from email.mime.base import MIMEBase
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.utils import formataddr
 
 from dotenv import load_dotenv
 from slack import WebClient
@@ -13,6 +19,12 @@ logging.basicConfig(
 )
 
 load_dotenv()
+
+# email credentials
+email_user = os.getenv("EMAIL_USER")
+email_pass = os.getenv("EMAIL_PASS")
+smtp_server = os.getenv("SMTP_SERVER")
+smtp_port = os.getenv("SMTP_PORT")
 
 # Your Slack API token
 slack_token = os.environ.get("SLACK_API_TOKEN")
@@ -123,3 +135,51 @@ def update_last_alert_date(scraper_name: str, new_date: datetime.date):
         # write new content
         with open("storage/last_alert.json", "w") as f:
             json.dump(last_alert_data, f)
+
+
+def send_email_with_attachment(sender_email, sender_name, sender_password,
+                               recipients, subject, body, attachment_path):
+    """
+    Sends an email with an attachment to multiple recipients.
+
+    Parameters:
+    - sender_email (str): Sender's email address.
+    - sender_name (str): Sender's display name.
+    - sender_password (str): Sender's email password.
+    - recipients (list): List of recipient email addresses.
+    - subject (str): Email subject.
+    - body (str): Email body content.
+    - attachment_path (str): Path to the attachment file.
+    - smtp_server (str): SMTP server address.
+    - smtp_port (int): SMTP server port.
+    """
+    # Create email message
+    msg = MIMEMultipart()
+    msg["From"] = formataddr((sender_name, sender_email))
+    msg["To"] = ", ".join(recipients)
+    msg["Subject"] = subject
+    msg.attach(MIMEText(body, "plain"))
+
+    # Attach the file
+    try:
+        with open(attachment_path, "rb") as attachment:
+            part = MIMEBase("application", "octet-stream")
+            part.set_payload(attachment.read())
+            encoders.encode_base64(part)
+            part.add_header(
+                "Content-Disposition",
+                f"attachment; filename= {attachment_path.split('/')[-1]}",
+            )
+            msg.attach(part)
+    except FileNotFoundError:
+        print(f"Attachment file not found: {attachment_path}")
+        return
+
+    # Send the email
+    try:
+        with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
+            server.login(sender_email, sender_password)
+            server.sendmail(sender_email, recipients, msg.as_string())
+        print("Email sent successfully!")
+    except Exception as e:
+        print(f"Failed to send email: {e}")

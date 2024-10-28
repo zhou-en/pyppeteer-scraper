@@ -21,10 +21,15 @@ import my_logger
 load_dotenv()
 
 from service.alert import (
-    send_slack_message,
+    send_email_with_attachment, send_slack_message,
     get_last_alert_date,
     update_last_alert_date,
 )
+
+# Set up the email parameters
+sender_email = os.environ.get("EMAIL_USER")
+sender_password = os.environ.get("EMAIL_PASSWORD")
+recipients = [os.environ.get("RECEIVER_EMAILS", "").split(";")]
 
 # Set up options for headless Chrome
 options = Options()
@@ -102,7 +107,7 @@ try:
     log.info(f"The price of the item is: ${price}")
 
     # Check if the value indicates out of stock
-    if button_value.lower() == "out of stock":
+    if button_value.lower() == "oout of stock":
         log.info("The item is out of stock.")
     else:
         # get last alert date
@@ -111,24 +116,21 @@ try:
             log.info(f"Previous alert was sent on {alert_date}")
         current_date = datetime.now().date()
         if not alert_date or alert_date < current_date:
-            # today = datetime.now().strftime("%Y-%m-%d")
-            # screenshot_name = f"storage/screenshot_{today}.png"
-            # jpeg_path = ""
-            # if not os.path.isfile(screenshot_name):
-            #     log.info("Taking a screenshot ...")
-            #     driver.save_screenshot(screenshot_name)
-            #     log.info(f"Screenshot saved as {screenshot_name}")
-            #
-            #     image = Image.open(screenshot_name)
-            #     jpeg_path = screenshot_name.replace(".png", ".jpeg")
-            #     image = image.convert(
-            #         "RGB")  # JPEG doesn't support transparency
-            #     image.save(jpeg_path, "JPEG")
-            #     log.info(f"Screenshot converted to {jpeg_path}")
+            today = datetime.now().strftime("%Y-%m-%d")
+            screenshot_name = f"storage/screenshot_{today}.png"
+            if not os.path.isfile(screenshot_name):
+                log.info("Taking a screenshot ...")
+                driver.save_screenshot(screenshot_name)
+                log.info(f"Screenshot saved as {screenshot_name}")
 
             log.info("Sending new alert...")
             msg = f"*<{link}|Aiden & Ivy 6-piece Fabric Sectional, Grey>* is available: {link}"
             send_slack_message(msg)
+            send_email_with_attachment(sender_email, "Costco Scraper",
+                                       sender_password,
+                                       recipients, "Costco Scraper Alert",
+                                       "testing",
+                                       screenshot_name)
             update_last_alert_date("costco", current_date)
 
 finally:
