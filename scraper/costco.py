@@ -27,9 +27,9 @@ from service.alert import (
 )
 
 # Set up the email parameters
-sender_email = os.environ.get("EMAIL_USER")
-sender_password = os.environ.get("EMAIL_PASSWORD")
-recipients = [os.environ.get("RECEIVER_EMAILS", "").split(";")]
+sender_email = os.environ.get("EMAIL_USER", "")
+sender_password = os.environ.get("EMAIL_PASSWORD", "")
+recipients = os.environ.get("RECEIVER_EMAILS", "")
 
 # Set up options for headless Chrome
 options = Options()

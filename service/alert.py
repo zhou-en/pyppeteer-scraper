@@ -155,7 +155,7 @@ def send_email_with_attachment(sender_email, sender_name, sender_password,
     # Create email message
     msg = MIMEMultipart()
     msg["From"] = sender_name + " <" + sender_email + ">"
-    msg["To"] = ", ".join(recipients)
+    msg["To"] = recipients
     msg["Subject"] = subject
     msg.attach(MIMEText(body, "plain"))
 
