@@ -126,12 +126,12 @@ try:
             log.info("Sending new alert...")
             msg = f"*<{link}|Aiden & Ivy 6-piece Fabric Sectional, Grey>* is available: {link}"
             send_slack_message(msg)
+            update_last_alert_date("costco", current_date)
             send_email_with_attachment(sender_email, "Costco Scraper",
                                        sender_password,
                                        recipients, "Costco Scraper Alert",
                                        "testing",
                                        screenshot_name)
-            update_last_alert_date("costco", current_date)
 
 finally:
     # Output the page source to the console
