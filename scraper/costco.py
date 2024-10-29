@@ -31,6 +31,7 @@ sender_email = os.environ.get("EMAIL_USER", "")
 sender_password = os.environ.get("EMAIL_PASSWORD", "")
 recipients = os.environ.get("RECEIVER_EMAILS", "")
 
+
 # Set up options for headless Chrome
 options = Options()
 options.headless = True  # Enable headless mode for invisible operation
@@ -131,7 +132,8 @@ try:
                                        sender_password,
                                        recipients, "Costco Scraper Alert",
                                        "testing",
-                                       screenshot_name)
+                                       screenshot_name,
+                                       )
 
 finally:
     # Output the page source to the console

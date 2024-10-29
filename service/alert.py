@@ -19,12 +19,6 @@ logging.basicConfig(
 
 load_dotenv()
 
-# email credentials
-email_user = os.getenv("EMAIL_USER")
-email_pass = os.getenv("EMAIL_PASS")
-smtp_server = os.getenv("SMTP_SERVER")
-smtp_port = os.getenv("SMTP_PORT")
-
 # Your Slack API token
 slack_token = os.environ.get("SLACK_API_TOKEN")
 channel_id = os.environ.get("CHANNEL_ID")
@@ -175,6 +169,8 @@ def send_email_with_attachment(sender_email, sender_name, sender_password,
         return
 
     # Send the email
+    smtp_server = os.environ.get("SMTP_SERVER", "")
+    smtp_port = os.environ.get("SMTP_PORT", 465)
     try:
         with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
             server.login(sender_email, sender_password)
