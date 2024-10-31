@@ -108,7 +108,7 @@ try:
     log.info(f"The price of the item is: ${price}")
 
     # Check if the value indicates out of stock
-    if button_value.lower() == "oout of stock":
+    if button_value.lower() == "out of stock":
         log.info("The item is out of stock.")
     else:
         # get last alert date
