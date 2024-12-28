@@ -25,7 +25,7 @@ async def get_article_titles(keywords: List[str]):
         # type keyword in search box
         await entry_box.type(keyword)
         # wait for search results to load
-        await page.waitFor(4000)
+        await page.waitFor(40000)
         # extract the article titles
         topics = await page.querySelectorAll("h2")
         for topic in topics:
