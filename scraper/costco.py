@@ -1,4 +1,3 @@
-
 import os
 import platform
 import sys
@@ -39,7 +38,11 @@ options.add_argument("--window-size=1920,1200")  # Define the window size of the
 options.add_argument("--headless")  # Run in headless mode
 options.add_argument("--no-sandbox")  # Bypass OS security model
 options.add_argument("--disable-dev-shm-usage")  # Overcome limited resource problems
-options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36")
+options.add_argument(
+    "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/89.0.4389.82 Safari/537.36"
+)
 options.add_argument("--disable-gpu")  # Disable GPU acceleration
 options.binary_location = "/usr/bin/chromium-browser"
 
@@ -125,15 +128,21 @@ try:
                 log.info(f"Screenshot saved as {screenshot_name}")
 
             log.info("Sending new alert...")
-            msg = f"*<{link}|Aiden & Ivy 6-piece Fabric Sectional, Grey>* is available: {link}"
+            msg = (
+                f"*<{link}|Aiden & Ivy 6-piece Fabric Sectional, Grey>* "
+                f"is available: {link}"
+            )
             send_slack_message(msg)
             update_last_alert_date("costco", current_date)
-            send_email_with_attachment(sender_email, "Costco Scraper",
-                                       sender_password,
-                                       recipients, "Costco Scraper Alert",
-                                       "testing",
-                                       screenshot_name,
-                                       )
+            send_email_with_attachment(
+                sender_email,
+                "Costco Scraper",
+                sender_password,
+                recipients,
+                "Costco Scraper Alert",
+                "testing",
+                screenshot_name,
+            )
 
 finally:
     # Output the page source to the console

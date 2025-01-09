@@ -153,7 +153,11 @@ async def run(proxy: str = None, port: int = None) -> None:
             location_link = f"[{location_str}](https://www.google.com/maps/place/{location_str.replace(' ', '+')}/{MAP_DATA})"
 
             event_detail = f"{reg_details_str} at {location_link}"
-            event_found = {"title": title_str, "start": start_str, "status": event_detail}
+            event_found = {
+                "title": title_str,
+                "start": start_str,
+                "status": event_detail
+            }
             send_library_event_alert(event_found, target_url)
             break
     await scraper.browser.close()
