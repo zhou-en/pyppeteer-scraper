@@ -100,6 +100,7 @@ try:
     add_to_cart_button = WebDriverWait(driver, 3).until(
         EC.presence_of_element_located((By.ID, "add-to-cart-btn"))
     )
+    sleep(1)
 
     # Retrieve the value of the button
     button_value = add_to_cart_button.get_attribute("value")
@@ -114,6 +115,7 @@ try:
     if button_value.lower() == "out of stock":
         log.info("The item is out of stock.")
     else:
+        log.info(f"This what we found: {button_value.lower()}")
         # get last alert date
         alert_date = get_last_alert_date("costco")
         if alert_date:
