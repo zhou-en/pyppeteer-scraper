@@ -95,10 +95,11 @@ async def run(proxy: str = None, port: int = None) -> None:
         title_str = await title.jsonValue()
         log.info(f"Going through event: {title_str}")
 
-        if "2025" in title_str:
+        if "2025" in title_str and "winter" in title_str.lower():
             # if "summer" in title_str.lower() or "winter" in title_str.lower() or "fall" in title_str.lower():
-            if (
-                    "soccer" in title_str.lower() or "basketball" in title_str.lower()) and "kinder" not in title_str.lower():
+            if ((
+                    "soccer" in title_str.lower() or "basketball" in title_str.lower())
+                    and "kinder" not in title_str.lower()):
                 log.info(f"Found potential events: {title_str}")
                 event_found = {"title": title_str, "start": "", "status": ""}
                 send_stonebridge_event_alert(event_found, target_url)
