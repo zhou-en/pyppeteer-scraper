@@ -1,9 +1,10 @@
 import asyncio
+import json
 import os
 import platform
 import sys
-import json
 
+import requests
 from dotenv import load_dotenv
 
 current = os.path.dirname(os.path.realpath(__file__))
@@ -176,6 +177,40 @@ def send_home_depo_alert(workshop: dict, link):
         log.info("No alerts were needed.")
 
 
+def register_home_depot_workshop(event_code):
+    """
+    Register for a Home Depot workshop
+    Args:
+        event_code: The specific event code
+    Returns:
+        tuple: (success, response_text)
+    """
+    url = f"https://www.homedepot.ca/api/workshopsvc/v1/workshops/WS00023/events/{event_code}/signups?lang=en"
+
+    headers = {
+        'Content-Type': 'application/json'
+    }
+
+    payload = {
+        "customer": {
+            "firstName": "En",
+            "lastName": "Zhou",
+            "email": "zhouen.nathan@gmail.com"
+        },
+        "workshopEventCode": event_code,
+        "store": "7265",
+        "participantCount": 2,
+        "guestParticipants": [],
+        "lang": "en"
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        return response.ok, response.text
+    except Exception as e:
+        return False, str(e)
+
+
 async def run2(proxy: str = None, port: int = None) -> None:
     from playwright.async_api import async_playwright
 
@@ -190,29 +225,47 @@ async def run2(proxy: str = None, port: int = None) -> None:
         log.info(f"{json.dumps(content['workshopEventWsDTO'], indent=4)}")
         for event in content['workshopEventWsDTO']:
             event_type = event.get("workshopType", "")
+            # ToDo: check if event_code key workshopEventCode
+            event_code = event.get("workshopEventCode", "KWBA0001")
             seats_left = event.get("remainingSeats")
             status = event.get("workshopStatus")
             details = event.get("eventType")
             title = details.get("name")
             start = event.get("eventDate")
-            if event_type == "KID" and status == "ACTIVE":
-                if seats_left > 0:
-                    # get last alert date
-                    alert_date = get_last_alert_date("home_depo")
-                    log.info(f"Previous alert was sent on {alert_date}")
-                    current_date = datetime.now().date()
-                    if not alert_date or alert_date < current_date:
-                        log.info("Sending new alert...")
-                        link = "https://www.homedepot.ca/workshops?store=7265"
-                        msg = f"*<{link}|{title}>* starts on *{start}* is open for registration: {link}"
-                        send_slack_message(msg)
-                        update_last_alert_date("home_depo", current_date)
-                    else:
-                        log.info("No alerts were needed.")
-                else:
-                    log.info(f"{title} starts on {start} is fully registed")
+
+            if seats_left == 0:
+                log.info(f"{title} starts on {start} is fully registered")
+                continue
+            if event_type != "KID":
+                log.info(f"{title} is not a kid workshop, skipping...")
+                continue
+            if status != "ACTIVE":
+                log.info(f"{title} is not active, skipping...")
+                continue
+
+            # get last alert date
+            alert_date = get_last_alert_date("home_depo")
+            log.info(f"Previous alert was sent on {alert_date}")
+            current_date = datetime.now().date()
+
+            if alert_date and alert_date >= current_date:
+                log.info("No new alert is needed.")
+                continue
+
+            log.info("Sending new alert...")
+            link = "https://www.homedepot.ca/workshops?store=7265"
+            msg = f"*<{link}|{title}>* starts on *{start}* is open for registration: {link}"
+            send_slack_message(msg)
+            update_last_alert_date("home_depo", current_date)
+            log.info("Registering workshop...")
+            success, response = register_home_depot_workshop(event_code)
+            if success:
+                msg = f"Successfully registered *<{link}|{title}>* starts on *{start}*: {link}"
+                log.info(msg)
+                send_slack_message(msg)
             else:
-                log.info(f"{title} is not active or for kids")
+                log.error(f"Registration failed: {response}")
+
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
