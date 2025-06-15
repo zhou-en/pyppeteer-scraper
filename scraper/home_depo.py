@@ -225,8 +225,7 @@ async def run2(proxy: str = None, port: int = None) -> None:
         log.info(f"{json.dumps(content['workshopEventWsDTO'], indent=4)}")
         for event in content['workshopEventWsDTO']:
             event_type = event.get("workshopType", "")
-            # ToDo: check if event_code key workshopEventCode
-            event_code = event.get("workshopEventCode", "KWBA0001")
+            event_code = event.get("code", "KWBA0001")
             seats_left = event.get("remainingSeats")
             status = event.get("workshopStatus")
             details = event.get("eventType")
@@ -257,14 +256,16 @@ async def run2(proxy: str = None, port: int = None) -> None:
             msg = f"*<{link}|{title}>* starts on *{start}* is open for registration: {link}"
             send_slack_message(msg)
             update_last_alert_date("home_depo", current_date)
-            log.info("Registering workshop...")
-            success, response = register_home_depot_workshop(event_code)
-            if success:
-                msg = f"Successfully registered *<{link}|{title}>* starts on *{start}*: {link}"
-                log.info(msg)
-                send_slack_message(msg)
-            else:
-                log.error(f"Registration failed: {response}")
+            # KWBA0001 starts at 8:30 on Saturday
+            if event_code == "KWBA0001":
+                log.info("Registering workshop...")
+                success, response = register_home_depot_workshop(event_code)
+                if success:
+                    msg = f"Successfully registered *<{link}|{title}>* starts on *{start}*: {link}"
+                    log.info(msg)
+                    send_slack_message(msg)
+                else:
+                    log.error(f"Registration failed: {response}")
 
 
 if __name__ == "__main__":
