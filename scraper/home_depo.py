@@ -223,14 +223,24 @@ async def run2(proxy: str = None, port: int = None) -> None:
         response = await context.get(target_url)
         content = await response.json()
         log.info(f"{json.dumps(content['workshopEventWsDTO'], indent=4)}")
+
+        if not content.get('workshopEventWsDTO'):
+            log.info("No workshop events found")
+            return
+
         for event in content['workshopEventWsDTO']:
             event_type = event.get("workshopType", "")
-            event_code = event.get("code", "KWBA0001")
-            seats_left = event.get("remainingSeats")
-            status = event.get("workshopStatus")
-            details = event.get("eventType")
-            title = details.get("name")
-            start = event.get("eventDate")
+            event_code = event.get("code", "")
+            seats_left = event.get("remainingSeats", 0)
+            status = event.get("workshopStatus", "")
+            details = event.get("eventType", {})
+            title = details.get("name", "Unknown workshop")
+            start = event.get("eventDate", "")
+            start_datetime = datetime.fromisoformat(
+                start.replace('Z', '+00:00')) if start else None
+
+            log.info(
+                f"Found workshop: {title}, code: {event_code}, seats left: {seats_left}, status: {status}")
 
             if seats_left == 0:
                 log.info(f"{title} starts on {start} is fully registered")
@@ -256,16 +266,40 @@ async def run2(proxy: str = None, port: int = None) -> None:
             msg = f"*<{link}|{title}>* starts on *{start}* is open for registration: {link}"
             send_slack_message(msg)
             update_last_alert_date("home_depo", current_date)
-            # KWBA0001 starts at 8:30 on Saturday
-            if event_code == "KWBA0001":
-                log.info("Registering workshop...")
+
+            # Check for specific workshops to register automatically
+            if event_code.startswith("KWTM"):
+                registration_msg = (
+                    f"Attempting to register for workshop: \n"
+                    f"• Event Code: *{event_code}*\n"
+                    f"• Title: *{title}*\n"
+                    f"• Date: *{start}*\n"
+                    f"• Seats Left: *{seats_left}*"
+                )
+                log.info(registration_msg)
+                send_slack_message(registration_msg)
+
+                log.info(f"Registering workshop {event_code}...")
                 success, response = register_home_depot_workshop(event_code)
                 if success:
-                    msg = f"Successfully registered *<{link}|{title}>* starts on *{start}*: {link}"
-                    log.info(msg)
-                    send_slack_message(msg)
+                    success_msg = (
+                        f"✅ Successfully registered:\n"
+                        f"• Event: *{title}*\n"
+                        f"• Code: *{event_code}*\n"
+                        f"• Date: *{start}*\n"
+                        f"• Link: {link}"
+                    )
+                    log.info(success_msg)
+                    send_slack_message(success_msg)
                 else:
-                    log.error(f"Registration failed: {response}")
+                    error_msg = (
+                        f"❌ Registration failed for:\n"
+                        f"• Event: *{title}*\n"
+                        f"• Code: *{event_code}*\n"
+                        f"• Error: {response}"
+                    )
+                    log.error(error_msg)
+                    send_slack_message(error_msg)
 
 
 if __name__ == "__main__":
