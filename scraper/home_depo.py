@@ -185,11 +185,17 @@ def register_home_depot_workshop(event_code):
     Returns:
         tuple: (success, response_text)
     """
+    log.info(
+        f"Attempting to register for workshop with event code: {event_code}")
+
     url = f"https://www.homedepot.ca/api/workshopsvc/v1/workshops/WS00023/events/{event_code}/signups?lang=en"
+    log.info(f"Registration URL: {url}")
 
     headers = {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/119.0'
     }
+    log.info(f"Request headers: {headers}")
 
     payload = {
         "customer": {
@@ -203,11 +209,35 @@ def register_home_depot_workshop(event_code):
         "guestParticipants": [],
         "lang": "en"
     }
+    log.info(f"Request payload: {json.dumps(payload, indent=2)}")
 
     try:
+        log.info("Sending registration request...")
         response = requests.post(url, headers=headers, json=payload)
+
+        log.info(f"Response status code: {response.status_code}")
+        log.info(f"Response headers: {dict(response.headers)}")
+
+        try:
+            response_json = response.json()
+            log.info(f"Response JSON: {json.dumps(response_json, indent=2)}")
+        except json.JSONDecodeError:
+            log.warning(f"Response is not JSON: {response.text[:500]}")
+
+        if response.ok:
+            log.info("Registration request was successful")
+        else:
+            log.error(
+                f"Registration failed with status code {response.status_code}")
+            log.error(f"Error response: {response.text[:500]}")
+
         return response.ok, response.text
+    except requests.exceptions.RequestException as e:
+        log.error(f"Request exception occurred: {str(e)}")
+        return False, str(e)
     except Exception as e:
+        log.error(f"Unexpected exception during registration: {str(e)}",
+                  exc_info=True)
         return False, str(e)
 
 
