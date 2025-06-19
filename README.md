@@ -79,3 +79,9 @@ If no Chromium is not installed, install it with the follow command and repeat a
   - path: `/usr/bin/chromedriver`
   - On MacOS: `brew install chromedriver`
     - path: `/opt/homebrew/bin/chromedriver`
+
+### Test Home Depot Registration
+
+```sh
+python -c "import sys; sys.path.append('/home/nathan/Projects/pyppeteer-scraper'); from scraper.home_depo import register_home_depot_workshop; success, response = register_home_depot_workshop('KWTM0001', dry_run=True); print(response)"
+```

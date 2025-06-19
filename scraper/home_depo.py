@@ -177,11 +177,25 @@ def send_home_depo_alert(workshop: dict, link):
         log.info("No alerts were needed.")
 
 
-def register_home_depot_workshop(event_code):
+def register_home_depot_workshop(
+        event_code,
+        first_name="En",
+        last_name="Zhou",
+        email="zhouen.nathan@gmail.com",
+        store_id="7265",
+        participant_count=2,
+        dry_run=False
+):
     """
     Register for a Home Depot workshop
     Args:
         event_code: The specific event code
+        first_name: First name for registration
+        last_name: Last name for registration
+        email: Email for registration
+        store_id: Store ID for the workshop location
+        participant_count: Number of participants
+        dry_run: If True, only log the request without sending it
     Returns:
         tuple: (success, response_text)
     """
@@ -199,17 +213,28 @@ def register_home_depot_workshop(event_code):
 
     payload = {
         "customer": {
-            "firstName": "En",
-            "lastName": "Zhou",
-            "email": "zhouen.nathan@gmail.com"
+            "firstName": first_name,
+            "lastName": last_name,
+            "email": email
         },
         "workshopEventCode": event_code,
-        "store": "7265",
-        "participantCount": 2,
+        "store": store_id,
+        "participantCount": participant_count,
         "guestParticipants": [],
         "lang": "en"
     }
     log.info(f"Request payload: {json.dumps(payload, indent=2)}")
+
+    if dry_run:
+        log.info("DRY RUN - Request not sent")
+        return True, json.dumps({
+            "dry_run": True,
+            "would_send": {
+                "url": url,
+                "headers": headers,
+                "payload": payload
+            }
+        })
 
     try:
         log.info("Sending registration request...")
@@ -239,7 +264,6 @@ def register_home_depot_workshop(event_code):
         log.error(f"Unexpected exception during registration: {str(e)}",
                   exc_info=True)
         return False, str(e)
-
 
 async def run2(proxy: str = None, port: int = None) -> None:
     from playwright.async_api import async_playwright
