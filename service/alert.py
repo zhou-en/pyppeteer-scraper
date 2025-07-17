@@ -178,3 +178,195 @@ def send_email_with_attachment(sender_email, sender_name, sender_password,
         print("Email sent successfully!")
     except Exception as e:
         print(f"Failed to send email: {e}")
+
+
+def send_urgent_workshop_alert(workshop_details, registration_url=None):
+    """
+    Send an urgent, high-visibility alert for time-sensitive workshop openings
+    with direct registration links to enable fast manual action if needed.
+
+    Args:
+        workshop_details: Dict with workshop info (title, date, event_code, seats_left)
+        registration_url: Direct URL for registration if available
+    """
+    try:
+        user_id = get_owner_id()
+
+        # If no direct registration URL provided, use the general workshops page
+        if not registration_url:
+            registration_url = "https://www.homedepot.ca/workshops?store=7265"
+
+        # Create an urgent-looking message with visual indicators
+        title = workshop_details.get('title', 'Unknown Workshop')
+        date = workshop_details.get('date', 'Unknown Date')
+        event_code = workshop_details.get('event_code', 'Unknown Code')
+        seats_left = workshop_details.get('seats_left', 'Unknown')
+
+        # Construct a message with high visibility and all the info needed to act quickly
+        blocks = [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": "🔴 URGENT: WORKSHOP REGISTRATION OPEN 🔴",
+                    "emoji": True
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"<@{user_id}> *Workshop available for registration!*"
+                }
+            },
+            {
+                "type": "divider"
+            },
+            {
+                "type": "section",
+                "fields": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Workshop:*\n{title}"
+                    },
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Date:*\n{date}"
+                    },
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Event Code:*\n`{event_code}`"
+                    },
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Seats Left:*\n{seats_left}"
+                    }
+                ]
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "*⚠️ Limited time to register! Act quickly! ⚠️*"
+                }
+            },
+            {
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {
+                            "type": "plain_text",
+                            "text": "🔗 Register Now",
+                            "emoji": True
+                        },
+                        "style": "primary",
+                        "url": registration_url
+                    }
+                ]
+            },
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"⏰ Alert sent at: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                    }
+                ]
+            }
+        ]
+
+        # Send the message with the special formatting
+        response = client.chat_postMessage(
+            channel=channel_id,
+            blocks=blocks,
+            text=f"URGENT: {title} workshop is open for registration!"
+            # Fallback text
+        )
+
+        # If we want to make the message extra noticeable, pin it to the channel
+        if response["ok"]:
+            try:
+                # Pin the message to the channel
+                client.pins_add(
+                    channel=channel_id,
+                    timestamp=response["ts"]
+                )
+                logging.info("Urgent workshop alert pinned to channel")
+            except SlackApiError as e:
+                logging.error(f"Error pinning urgent message: {e}")
+
+            # Send a follow-up @channel message to trigger notifications for everyone
+            try:
+                client.chat_postMessage(
+                    channel=channel_id,
+                    text=f"<!channel> A new workshop '{title}' is available for registration!"
+                )
+            except SlackApiError as e:
+                logging.error(f"Error sending @channel notification: {e}")
+
+            logging.info(f"Urgent workshop alert sent for {title}")
+            return True
+        else:
+            logging.error("Failed to send urgent workshop alert")
+            return False
+    except Exception as e:
+        logging.error(f"Error sending urgent workshop alert: {str(e)}")
+        return False
+
+
+def send_api_error_alert(service_name, error_message, details=None):
+    """
+    Send an error alert about API failures to Slack
+    Args:
+        service_name: Name of the service with API issue (e.g., 'Home Depot API')
+        error_message: Brief description of the error
+        details: Additional details/context about the error (optional)
+    """
+    try:
+        # Create a more visible error message with emoji and formatting
+        blocks = [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"🚨 *API ERROR - {service_name}* 🚨\n{error_message}"
+                }
+            }
+        ]
+
+        # Add error details if provided
+        if details:
+            blocks.append({
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Details:*\n```{details}```"
+                }
+            })
+
+        blocks.append({
+            "type": "context",
+            "elements": [
+                {
+                    "type": "mrkdwn",
+                    "text": f"⏰ Error occurred at: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                }
+            ]
+        })
+
+        # Send the message to Slack
+        client.chat_postMessage(
+            channel=channel_id,
+            blocks=blocks,
+            text=f"API ERROR - {service_name}: {error_message}"  # Fallback text
+        )
+        logging.info(f"API error alert sent to Slack: {error_message}")
+        return True
+    except SlackApiError as e:
+        logging.error(
+            f"Error sending API error alert to Slack: {e.response['error']}")
+        return False
+    except Exception as e:
+        logging.error(f"Unexpected error sending API error alert: {str(e)}")
+        return False

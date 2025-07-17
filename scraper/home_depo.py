@@ -199,6 +199,8 @@ def register_home_depot_workshop(
     Returns:
         tuple: (success, response_text)
     """
+    from service.alert import send_api_error_alert
+
     log.info(
         f"Attempting to register for workshop with event code: {event_code}")
 
@@ -246,23 +248,49 @@ def register_home_depot_workshop(
         try:
             response_json = response.json()
             log.info(f"Response JSON: {json.dumps(response_json, indent=2)}")
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
             log.warning(f"Response is not JSON: {response.text[:500]}")
+            send_api_error_alert(
+                "Home Depot Registration",
+                "JSON parsing error in registration response",
+                f"Event code: {event_code}\nError: {str(e)}\nResponse: {response.text[:500]}"
+            )
 
         if response.ok:
             log.info("Registration request was successful")
+            send_api_error_alert(
+                "Home Depot Registration",
+                f"✅ Registration successful for workshop {event_code}",
+                f"Name: {first_name} {last_name}\nEmail: {email}\nStore: {store_id}\nParticipants: {participant_count}"
+            )
+            return True, response.text
         else:
-            log.error(
-                f"Registration failed with status code {response.status_code}")
+            error_msg = f"Registration failed with status code {response.status_code}"
+            log.error(error_msg)
             log.error(f"Error response: {response.text[:500]}")
-
-        return response.ok, response.text
+            send_api_error_alert(
+                "Home Depot Registration",
+                f"❌ Registration failed for workshop {event_code}",
+                f"Status: {response.status_code}\nName: {first_name} {last_name}\nResponse: {response.text[:500]}"
+            )
+            return False, response.text
     except requests.exceptions.RequestException as e:
-        log.error(f"Request exception occurred: {str(e)}")
+        error_msg = f"Request exception occurred: {str(e)}"
+        log.error(error_msg)
+        send_api_error_alert(
+            "Home Depot Registration",
+            f"❌ Registration request error for workshop {event_code}",
+            f"Error: {str(e)}\nURL: {url}"
+        )
         return False, str(e)
     except Exception as e:
-        log.error(f"Unexpected exception during registration: {str(e)}",
-                  exc_info=True)
+        error_msg = f"Unexpected exception during registration: {str(e)}"
+        log.error(error_msg, exc_info=True)
+        send_api_error_alert(
+            "Home Depot Registration",
+            f"❌ Unexpected error during registration for workshop {event_code}",
+            f"Error: {str(e)}"
+        )
         return False, str(e)
 
 async def run2(proxy: str = None, port: int = None) -> None:
@@ -274,86 +302,192 @@ async def run2(proxy: str = None, port: int = None) -> None:
 
     async with async_playwright() as playwright:
         context = await playwright.request.new_context()
-        response = await context.get(target_url)
-        content = await response.json()
-        log.info(f"{json.dumps(content['workshopEventWsDTO'], indent=4)}")
+        try:
+            response = await context.get(target_url)
 
-        if not content.get('workshopEventWsDTO'):
-            log.info("No workshop events found")
-            return
+            # First check if the response is valid
+            status = response.status
+            log.info(f"Response status code: {status}")
 
-        for event in content['workshopEventWsDTO']:
-            event_type = event.get("workshopType", "")
-            event_code = event.get("code", "")
-            seats_left = event.get("remainingSeats", 0)
-            status = event.get("workshopStatus", "")
-            details = event.get("eventType", {})
-            title = details.get("name", "Unknown workshop")
-            start = event.get("eventDate", "")
-            start_datetime = datetime.fromisoformat(
-                start.replace('Z', '+00:00')) if start else None
-
-            log.info(
-                f"Found workshop: {title}, code: {event_code}, seats left: {seats_left}, status: {status}")
-
-            if seats_left == 0:
-                log.info(f"{title} starts on {start} is fully registered")
-                continue
-            if event_type != "KID":
-                log.info(f"{title} is not a kid workshop, skipping...")
-                continue
-            if status != "ACTIVE":
-                log.info(f"{title} is not active, skipping...")
-                continue
-
-            # get last alert date
-            alert_date = get_last_alert_date("home_depo")
-            log.info(f"Previous alert was sent on {alert_date}")
-            current_date = datetime.now().date()
-
-            if alert_date and alert_date >= current_date:
-                log.info("No new alert is needed.")
-                continue
-
-            log.info("Sending new alert...")
-            link = "https://www.homedepot.ca/workshops?store=7265"
-            msg = f"*<{link}|{title}>* starts on *{start}* is open for registration: {link}"
-            send_slack_message(msg)
-            update_last_alert_date("home_depo", current_date)
-
-            # Check for specific workshops to register automatically
-            if event_code.startswith("KWTM"):
-                registration_msg = (
-                    f"Attempting to register for workshop: \n"
-                    f"• Event Code: *{event_code}*\n"
-                    f"• Title: *{title}*\n"
-                    f"• Date: *{start}*\n"
-                    f"• Seats Left: *{seats_left}*"
+            # Check for non-successful status codes
+            if status != 200:
+                error_msg = f"Home Depot API returned non-200 status code: {status}"
+                log.error(error_msg)
+                from service.alert import send_api_error_alert
+                send_api_error_alert(
+                    "Home Depot API",
+                    error_msg,
+                    f"URL: {target_url}\nStatus Code: {status}"
                 )
-                log.info(registration_msg)
-                send_slack_message(registration_msg)
+                return
 
-                log.info(f"Registering workshop {event_code}...")
-                success, response = register_home_depot_workshop(event_code)
-                if success:
-                    success_msg = (
-                        f"✅ Successfully registered:\n"
-                        f"• Event: *{title}*\n"
-                        f"• Code: *{event_code}*\n"
-                        f"• Date: *{start}*\n"
-                        f"• Link: {link}"
-                    )
-                    log.info(success_msg)
-                    send_slack_message(success_msg)
-                else:
-                    error_msg = (
-                        f"❌ Registration failed for:\n"
-                        f"• Event: *{title}*\n"
-                        f"• Code: *{event_code}*\n"
-                        f"• Error: {response}"
-                    )
+            # Log response headers and text content for debugging
+            headers = response.headers
+            log.info(f"Response headers: {headers}")
+
+            text_content = await response.text()
+            log.info(f"Response content preview: {text_content[:200]}")
+
+            # Only try to parse as JSON if we have content
+            if text_content.strip():
+                try:
+                    content = await response.json()
+
+                    # Check if expected key exists
+                    if 'workshopEventWsDTO' not in content:
+                        error_msg = "Home Depot API response missing expected 'workshopEventWsDTO' key"
+                        log.error(error_msg)
+                        from service.alert import send_api_error_alert
+                        send_api_error_alert(
+                            "Home Depot API",
+                            error_msg,
+                            f"Response Keys: {list(content.keys())}"
+                        )
+                        return
+
+                    log.info(
+                        f"{json.dumps(content['workshopEventWsDTO'], indent=4)}")
+
+                    if not content.get('workshopEventWsDTO'):
+                        log.info("No workshop events found")
+                        return
+
+                    for event in content['workshopEventWsDTO']:
+                        event_type = event.get("workshopType", "")
+                        event_code = event.get("code", "")
+                        seats_left = event.get("remainingSeats", 0)
+                        status = event.get("workshopStatus", "")
+                        details = event.get("eventType", {})
+                        title = details.get("name", "Unknown workshop")
+                        start = event.get("eventDate", "")
+                        start_datetime = datetime.fromisoformat(
+                            start.replace('Z', '+00:00')) if start else None
+
+                        log.info(
+                            f"Found workshop: {title}, code: {event_code}, seats left: {seats_left}, status: {status}")
+
+                        if seats_left == 0:
+                            log.info(
+                                f"{title} starts on {start} is fully registered")
+                            continue
+                        if event_type != "KID":
+                            log.info(
+                                f"{title} is not a kid workshop, skipping...")
+                            continue
+                        if status != "ACTIVE":
+                            log.info(f"{title} is not active, skipping...")
+                            continue
+
+                        # get last alert date
+                        alert_date = get_last_alert_date("home_depo")
+                        log.info(f"Previous alert was sent on {alert_date}")
+                        current_date = datetime.now().date()
+
+                        if alert_date and alert_date >= current_date:
+                            log.info("No new alert is needed.")
+                            continue
+
+                        log.info("Sending new alert...")
+
+                        # General workshop page link
+                        workshop_page_link = "https://www.homedepot.ca/workshops?store=7265"
+
+                        # Build a direct registration link if possible
+                        registration_link = f"https://www.homedepot.ca/workshops/workshop-details/{event_code}?storeId=7265"
+
+                        # Send standard alert for continuity
+                        msg = f"*<{workshop_page_link}|{title}>* starts on *{start}* is open for registration: {workshop_page_link}"
+                        send_slack_message(msg)
+
+                        # Also send an urgent, high-visibility alert for time-sensitive workshops
+                        from service.alert import send_urgent_workshop_alert
+
+                        # Format date in a more readable way if possible
+                        formatted_date = start
+                        if start_datetime:
+                            formatted_date = start_datetime.strftime(
+                                "%A, %B %d, %Y at %I:%M %p")
+
+                        # Create workshop details for the urgent alert
+                        workshop_details = {
+                            'title': title,
+                            'date': formatted_date,
+                            'event_code': event_code,
+                            'seats_left': seats_left
+                        }
+
+                        # Send the urgent alert with direct registration link
+                        send_urgent_workshop_alert(workshop_details,
+                                                   registration_link)
+
+                        # Update last alert date
+                        update_last_alert_date("home_depo", current_date)
+
+                        # Check for specific workshops to register automatically
+                        if event_code.startswith("KWTM"):
+                            registration_msg = (
+                                f"Attempting to register for workshop: \n"
+                                f"• Event Code: *{event_code}*\n"
+                                f"• Title: *{title}*\n"
+                                f"• Date: *{start}*\n"
+                                f"• Seats Left: *{seats_left}*"
+                            )
+                            log.info(registration_msg)
+                            send_slack_message(registration_msg)
+
+                            log.info(f"Registering workshop {event_code}...")
+                            success, response = register_home_depot_workshop(
+                                event_code)
+                            if success:
+                                success_msg = (
+                                    f"✅ Successfully registered:\n"
+                                    f"• Event: *{title}*\n"
+                                    f"• Code: *{event_code}*\n"
+                                    f"• Date: *{start}*\n"
+                                    f"• Link: {link}"
+                                )
+                                log.info(success_msg)
+                                send_slack_message(success_msg)
+                            else:
+                                error_msg = (
+                                    f"❌ Registration failed for:\n"
+                                    f"• Event: *{title}*\n"
+                                    f"• Code: *{event_code}*\n"
+                                    f"• Error: {response}"
+                                )
+                                log.error(error_msg)
+                                send_slack_message(error_msg)
+                except json.JSONDecodeError as e:
+                    error_msg = f"Failed to decode JSON response: {e}"
                     log.error(error_msg)
-                    send_slack_message(error_msg)
+                    log.error(f"Response content was: {text_content[:500]}")
+                    from service.alert import send_api_error_alert
+                    send_api_error_alert(
+                        "Home Depot API",
+                        "JSON parsing error",
+                        f"Error: {str(e)}\nFirst 500 chars of response: {text_content[:500]}"
+                    )
+                    return
+            else:
+                error_msg = "Received empty response from Home Depot API"
+                log.error(error_msg)
+                from service.alert import send_api_error_alert
+                send_api_error_alert(
+                    "Home Depot API",
+                    error_msg,
+                    f"URL: {target_url}"
+                )
+                return
+        except Exception as e:
+            error_msg = f"Unexpected error accessing Home Depot API: {str(e)}"
+            log.error(error_msg, exc_info=True)
+            from service.alert import send_api_error_alert
+            send_api_error_alert(
+                "Home Depot API",
+                "Unexpected error",
+                f"Error: {str(e)}\nURL: {target_url}"
+            )
+            return
 
 
 if __name__ == "__main__":
