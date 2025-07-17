@@ -360,8 +360,28 @@ async def run2(proxy: str = None, port: int = None) -> None:
                         details = event.get("eventType", {})
                         title = details.get("name", "Unknown workshop")
                         start = event.get("eventDate", "")
-                        start_datetime = datetime.fromisoformat(
-                            start.replace('Z', '+00:00')) if start else None
+                        start_datetime = None
+                        if start:
+                            try:
+                                # Handle ISO format with different timezone formats
+                                # For formats like 2025-08-09T08:30:00-0400
+                                if '-' in start and len(start) > 20:
+                                    # Convert -0400 format to -04:00 which fromisoformat can handle
+                                    offset_idx = start.rfind('-')
+                                    if offset_idx > 10:  # Make sure we're looking at timezone, not date
+                                        offset = start[offset_idx:]
+                                        if len(offset) == 5:  # -0400 format
+                                            new_offset = f"{offset[:3]}:{offset[3:]}"
+                                            start = start[
+                                                    :offset_idx] + new_offset
+                                # For Z format like 2023-12-31T14:00:00Z
+                                start = start.replace('Z', '+00:00')
+                                start_datetime = datetime.fromisoformat(start)
+                            except ValueError as e:
+                                log.warning(
+                                    f"Could not parse date '{start}': {str(e)}")
+                                # Continue with the original string if parsing fails
+                                pass
 
                         log.info(
                             f"Found workshop: {title}, code: {event_code}, seats left: {seats_left}, status: {status}")
@@ -444,7 +464,7 @@ async def run2(proxy: str = None, port: int = None) -> None:
                                     f"• Event: *{title}*\n"
                                     f"• Code: *{event_code}*\n"
                                     f"• Date: *{start}*\n"
-                                    f"• Link: {link}"
+                                    f"• Link: {registration_link}"
                                 )
                                 log.info(success_msg)
                                 send_slack_message(success_msg)
