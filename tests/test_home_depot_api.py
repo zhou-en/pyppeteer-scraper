@@ -16,12 +16,15 @@ from playwright.async_api import async_playwright
 # Initialize logger
 log = my_logger.CustomLogger("test_home_depot", verbose=True, log_dir="../logs")
 
+
 async def test_playwright_api_request():
     """
     Test the Home Depot API using Playwright
     """
     log.info("Testing Home Depot API with Playwright...")
-    target_url = "https://www.homedepot.ca/api/workshopsvc/v1/workshops/all?storeId=7265&lang=en"
+    target_url = (
+        "https://www.homedepot.ca/api/workshopsvc/v1/workshops/all?storeId=7265&lang=en"
+    )
 
     async with async_playwright() as playwright:
         context = await playwright.request.new_context(
@@ -32,7 +35,7 @@ async def test_playwright_api_request():
         headers = {
             "Accept": "application/json, text/plain, */*",
             "Accept-Language": "en-US,en;q=0.9",
-            "Referer": "https://www.homedepot.ca/workshops?store=7265"
+            "Referer": "https://www.homedepot.ca/workshops?store=7265",
         }
 
         log.info(f"Sending request to: {target_url}")
@@ -58,13 +61,20 @@ async def test_playwright_api_request():
                 log.info("Successfully parsed JSON response")
 
                 # Check if the expected key exists
-                if 'workshopEventWsDTO' in content:
-                    log.info(f"Found {len(content['workshopEventWsDTO'])} workshop events")
-                    log.info(f"First event: {json.dumps(content['workshopEventWsDTO'][0], indent=2)}")
+                if "workshopEventWsDTO" in content:
+                    log.info(
+                        f"Found {len(content['workshopEventWsDTO'])} workshop events"
+                    )
+                    log.info(
+                        f"First event: {json.dumps(content['workshopEventWsDTO'][0], indent=2)}"
+                    )
 
                     # Return the first event code for registration test
-                    for event in content['workshopEventWsDTO']:
-                        if event.get("workshopType") == "KID" and event.get("remainingSeats", 0) > 0:
+                    for event in content["workshopEventWsDTO"]:
+                        if (
+                            event.get("workshopType") == "KID"
+                            and event.get("remainingSeats", 0) > 0
+                        ):
                             return event["eventType"]["workshopEventId"]
                 else:
                     log.info(f"Response keys: {list(content.keys())}")
@@ -76,18 +86,21 @@ async def test_playwright_api_request():
 
         return None
 
+
 def test_requests_api():
     """
     Test the Home Depot API using the requests library
     """
     log.info("Testing Home Depot API with requests library...")
-    target_url = "https://www.homedepot.ca/api/workshopsvc/v1/workshops/all?storeId=7265&lang=en"
+    target_url = (
+        "https://www.homedepot.ca/api/workshopsvc/v1/workshops/all?storeId=7265&lang=en"
+    )
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/119.0",
         "Accept": "application/json, text/plain, */*",
         "Accept-Language": "en-US,en;q=0.9",
-        "Referer": "https://www.homedepot.ca/workshops?store=7265"
+        "Referer": "https://www.homedepot.ca/workshops?store=7265",
     }
 
     log.info(f"Sending request to: {target_url}")
@@ -108,13 +121,20 @@ def test_requests_api():
                 json_data = response.json()
                 log.info("Successfully parsed JSON response")
 
-                if 'workshopEventWsDTO' in json_data:
-                    log.info(f"Found {len(json_data['workshopEventWsDTO'])} workshop events")
-                    log.info(f"First event: {json.dumps(json_data['workshopEventWsDTO'][0], indent=2)}")
+                if "workshopEventWsDTO" in json_data:
+                    log.info(
+                        f"Found {len(json_data['workshopEventWsDTO'])} workshop events"
+                    )
+                    log.info(
+                        f"First event: {json.dumps(json_data['workshopEventWsDTO'][0], indent=2)}"
+                    )
 
                     # Return the first event code for registration test
-                    for event in json_data['workshopEventWsDTO']:
-                        if event.get("workshopType") == "KID" and event.get("remainingSeats", 0) > 0:
+                    for event in json_data["workshopEventWsDTO"]:
+                        if (
+                            event.get("workshopType") == "KID"
+                            and event.get("remainingSeats", 0) > 0
+                        ):
                             return event["eventType"]["workshopEventId"]
                 else:
                     log.info(f"Response keys: {list(json_data.keys())}")
@@ -128,6 +148,7 @@ def test_requests_api():
         log.error(f"Request exception: {str(e)}")
 
     return None
+
 
 def test_registration_api(event_code=None, dry_run=True):
     """
@@ -151,7 +172,7 @@ def test_registration_api(event_code=None, dry_run=True):
         "Content-Type": "application/json",
         "Accept": "application/json, text/plain, */*",
         "Accept-Language": "en-US,en;q=0.9",
-        "Referer": "https://www.homedepot.ca/workshops?store=7265"
+        "Referer": "https://www.homedepot.ca/workshops?store=7265",
     }
 
     # Test registration data - replace with your test data
@@ -159,13 +180,13 @@ def test_registration_api(event_code=None, dry_run=True):
         "customer": {
             "firstName": "Test",
             "lastName": "User",
-            "email": "test@example.com"
+            "email": "test@example.com",
         },
         "workshopEventCode": event_code,
         "store": "7265",
         "participantCount": 1,
         "guestParticipants": [],
-        "lang": "en"
+        "lang": "en",
     }
 
     log.info(f"Registration URL: {url}")
@@ -200,6 +221,7 @@ def test_registration_api(event_code=None, dry_run=True):
         log.error(f"Registration request exception occurred: {str(e)}")
         return False, str(e)
 
+
 async def test_registration_api_playwright(event_code=None, dry_run=True):
     """
     Test the Home Depot workshop registration API using Playwright
@@ -212,7 +234,9 @@ async def test_registration_api_playwright(event_code=None, dry_run=True):
         event_code = "TEST_EVENT_CODE"  # Default test code
         log.info(f"No event code provided, using test code: {event_code}")
 
-    log.info(f"Testing Home Depot registration API with Playwright for event code: {event_code}")
+    log.info(
+        f"Testing Home Depot registration API with Playwright for event code: {event_code}"
+    )
 
     # Registration endpoint
     url = f"https://www.homedepot.ca/api/workshopsvc/v1/workshops/WS00023/events/{event_code}/signups?lang=en"
@@ -222,13 +246,13 @@ async def test_registration_api_playwright(event_code=None, dry_run=True):
         "customer": {
             "firstName": "Test",
             "lastName": "User",
-            "email": "test@example.com"
+            "email": "test@example.com",
         },
         "workshopEventCode": event_code,
         "store": "7265",
         "participantCount": 1,
         "guestParticipants": [],
-        "lang": "en"
+        "lang": "en",
     }
 
     log.info(f"Registration URL: {url}")
@@ -247,13 +271,15 @@ async def test_registration_api_playwright(event_code=None, dry_run=True):
             "Content-Type": "application/json",
             "Accept": "application/json, text/plain, */*",
             "Accept-Language": "en-US,en;q=0.9",
-            "Referer": "https://www.homedepot.ca/workshops?store=7265"
+            "Referer": "https://www.homedepot.ca/workshops?store=7265",
         }
 
         log.info(f"Registration headers: {headers}")
 
         try:
-            response = await context.post(url, headers=headers, data=json.dumps(payload))
+            response = await context.post(
+                url, headers=headers, data=json.dumps(payload)
+            )
 
             status = response.status
             log.info(f"Registration response status code: {status}")
@@ -270,7 +296,9 @@ async def test_registration_api_playwright(event_code=None, dry_run=True):
 
                 try:
                     json_content = await response.json()
-                    log.info(f"Registration response JSON: {json.dumps(json_content, indent=2)}")
+                    log.info(
+                        f"Registration response JSON: {json.dumps(json_content, indent=2)}"
+                    )
                 except json.JSONDecodeError as e:
                     log.warning(f"Failed to decode JSON registration response: {e}")
 
@@ -282,6 +310,7 @@ async def test_registration_api_playwright(event_code=None, dry_run=True):
         except Exception as e:
             log.error(f"Registration request exception occurred: {str(e)}")
             return False, str(e)
+
 
 async def main():
     """
@@ -305,16 +334,23 @@ async def main():
         # Test the registration API with Playwright (dry run by default)
         success_pw, response_pw = await test_registration_api_playwright(event_code)
 
-        log.info(f"Registration test with requests: {'Success' if success_req else 'Failed'}")
-        log.info(f"Registration test with Playwright: {'Success' if success_pw else 'Failed'}")
+        log.info(
+            f"Registration test with requests: {'Success' if success_req else 'Failed'}"
+        )
+        log.info(
+            f"Registration test with Playwright: {'Success' if success_pw else 'Failed'}"
+        )
     else:
-        log.warning("No valid event code found. Registration tests will use a dummy code.")
+        log.warning(
+            "No valid event code found. Registration tests will use a dummy code."
+        )
 
         # Test with dummy code
         await test_registration_api_playwright()
         test_registration_api()
 
     log.info("Tests completed")
+
 
 if __name__ == "__main__":
     asyncio.run(main())
