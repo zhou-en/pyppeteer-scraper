@@ -414,7 +414,7 @@ async def run2(proxy: str = None, port: int = None) -> None:
                         workshop_page_link = "https://www.homedepot.ca/workshops?store=7265"
 
                         # Build a direct registration link if possible
-                        registration_link = f"https://www.homedepot.ca/workshops/workshop-details/{event_code}?storeId=7265"
+                        registration_link = f"https://www.homedepot.ca/workshops?storeId=7265"
 
                         # Send standard alert for continuity
                         msg = f"*<{workshop_page_link}|{title}>* starts on *{start}* is open for registration: {workshop_page_link}"
@@ -445,7 +445,7 @@ async def run2(proxy: str = None, port: int = None) -> None:
                         update_last_alert_date("home_depo", current_date)
 
                         # Check for specific workshops to register automatically
-                        if event_code.startswith("KWTM"):
+                        if event_code.startswith("KW"):
                             registration_msg = (
                                 f"Attempting to register for workshop: \n"
                                 f"• Event Code: *{event_code}*\n"
@@ -478,6 +478,9 @@ async def run2(proxy: str = None, port: int = None) -> None:
                                 )
                                 log.error(error_msg)
                                 send_slack_message(error_msg)
+                        else:
+                            log.info(
+                                f"Skipping registration for non-KW event code: {event_code}")
                 except json.JSONDecodeError as e:
                     error_msg = f"Failed to decode JSON response: {e}"
                     log.error(error_msg)
