@@ -16,8 +16,9 @@ load_dotenv()
 
 BROWSER_PATH = os.environ.get("BROWSER_PATH")
 if platform.system() != "Darwin":
-    if "/home/pi/Projects/pyppeteer-scraper" not in sys.path and "/home/pi" in ",".join(
-        sys.path
+    if (
+            "/home/pi/Projects/pyppeteer-scraper" not in sys.path
+            and "/home/pi" in ",".join(sys.path)
     ):
         sys.path.append("/home/pi/Projects/pyppeteer-scraper")
 
@@ -184,7 +185,7 @@ def register_home_depot_workshop(
         email="zhouen.nathan@gmail.com",
         store_id="7265",
         participant_count=2,
-        dry_run=False
+        dry_run=False,
 ):
     """
     Register for a Home Depot workshop
@@ -208,35 +209,31 @@ def register_home_depot_workshop(
     log.info(f"Registration URL: {url}")
 
     headers = {
-        'Content-Type': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/119.0'
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/119.0",
     }
     log.info(f"Request headers: {headers}")
 
     payload = {
-        "customer": {
-            "firstName": first_name,
-            "lastName": last_name,
-            "email": email
-        },
+        "customer": {"firstName": first_name, "lastName": last_name,
+                     "email": email},
         "workshopEventCode": event_code,
         "store": store_id,
         "participantCount": participant_count,
         "guestParticipants": [],
-        "lang": "en"
+        "lang": "en",
     }
     log.info(f"Request payload: {json.dumps(payload, indent=2)}")
 
     if dry_run:
         log.info("DRY RUN - Request not sent")
-        return True, json.dumps({
-            "dry_run": True,
-            "would_send": {
-                "url": url,
-                "headers": headers,
-                "payload": payload
+        return True, json.dumps(
+            {
+                "dry_run": True,
+                "would_send": {"url": url, "headers": headers,
+                               "payload": payload},
             }
-        })
+        )
 
     try:
         log.info("Sending registration request...")
@@ -253,7 +250,7 @@ def register_home_depot_workshop(
             send_api_error_alert(
                 "Home Depot Registration",
                 "JSON parsing error in registration response",
-                f"Event code: {event_code}\nError: {str(e)}\nResponse: {response.text[:500]}"
+                f"Event code: {event_code}\nError: {str(e)}\nResponse: {response.text[:500]}",
             )
 
         if response.ok:
@@ -261,7 +258,7 @@ def register_home_depot_workshop(
             send_api_error_alert(
                 "Home Depot Registration",
                 f"✅ Registration successful for workshop {event_code}",
-                f"Name: {first_name} {last_name}\nEmail: {email}\nStore: {store_id}\nParticipants: {participant_count}"
+                f"Name: {first_name} {last_name}\nEmail: {email}\nStore: {store_id}\nParticipants: {participant_count}",
             )
             return True, response.text
         else:
@@ -271,7 +268,7 @@ def register_home_depot_workshop(
             send_api_error_alert(
                 "Home Depot Registration",
                 f"❌ Registration failed for workshop {event_code}",
-                f"Status: {response.status_code}\nName: {first_name} {last_name}\nResponse: {response.text[:500]}"
+                f"Status: {response.status_code}\nName: {first_name} {last_name}\nResponse: {response.text[:500]}",
             )
             return False, response.text
     except requests.exceptions.RequestException as e:
@@ -280,7 +277,7 @@ def register_home_depot_workshop(
         send_api_error_alert(
             "Home Depot Registration",
             f"❌ Registration request error for workshop {event_code}",
-            f"Error: {str(e)}\nURL: {url}"
+            f"Error: {str(e)}\nURL: {url}",
         )
         return False, str(e)
     except Exception as e:
@@ -289,9 +286,16 @@ def register_home_depot_workshop(
         send_api_error_alert(
             "Home Depot Registration",
             f"❌ Unexpected error during registration for workshop {event_code}",
-            f"Error: {str(e)}"
+            f"Error: {str(e)}",
         )
         return False, str(e)
+
+
+def should_register_workshop(workshop_id, event_date):
+    if workshop_id.startswith("KWHC") and "8:30" in event_date:
+        return True
+    return False
+
 
 async def run2(proxy: str = None, port: int = None) -> None:
     from playwright.async_api import async_playwright
@@ -314,10 +318,11 @@ async def run2(proxy: str = None, port: int = None) -> None:
                 error_msg = f"Home Depot API returned non-200 status code: {status}"
                 log.error(error_msg)
                 from service.alert import send_api_error_alert
+
                 send_api_error_alert(
                     "Home Depot API",
                     error_msg,
-                    f"URL: {target_url}\nStatus Code: {status}"
+                    f"URL: {target_url}\nStatus Code: {status}",
                 )
                 return
 
@@ -334,62 +339,75 @@ async def run2(proxy: str = None, port: int = None) -> None:
                     content = await response.json()
 
                     # Check if expected key exists
-                    if 'workshopEventWsDTO' not in content:
+                    if "workshopEventWsDTO" not in content:
                         error_msg = "Home Depot API response missing expected 'workshopEventWsDTO' key"
                         log.error(error_msg)
                         from service.alert import send_api_error_alert
+
                         send_api_error_alert(
                             "Home Depot API",
                             error_msg,
-                            f"Response Keys: {list(content.keys())}"
+                            f"Response Keys: {list(content.keys())}",
                         )
                         return
 
                     log.info(
                         f"{json.dumps(content['workshopEventWsDTO'], indent=4)}")
 
-                    if not content.get('workshopEventWsDTO'):
+                    if not content.get("workshopEventWsDTO"):
                         log.info("No workshop events found")
                         return
 
-                    for event in content['workshopEventWsDTO']:
+                    for event in content["workshopEventWsDTO"]:
+                        workshop_id = event.get("workshopId", "")
                         event_type = event.get("workshopType", "")
                         details = event.get("eventType", {})
-                        event_code = details.get("workshopEventId",
-                                                 "")  # FIX: get from eventType.workshopEventId
+                        event_code = details.get(
+                            "workshopEventId", ""
+                        )  # FIX: get from eventType.workshopEventId
                         seats_left = event.get("remainingSeats", 0)
                         status = event.get("workshopStatus", "")
                         title = details.get("name", "Unknown workshop")
-                        start = event.get("eventDate", "")
-                        start_datetime = None
-                        if start:
+                        event_date = event.get("eventDate", "")
+                        start_datetime = event.get("startTime", "")
+                        if start_datetime:
                             try:
                                 # Handle ISO format with different timezone formats
                                 # For formats like 2025-08-09T08:30:00-0400
-                                if '-' in start and len(start) > 20:
+                                if "-" in start_datetime and len(
+                                        start_datetime) > 20:
                                     # Convert -0400 format to -04:00 which fromisoformat can handle
-                                    offset_idx = start.rfind('-')
-                                    if offset_idx > 10:  # Make sure we're looking at timezone, not date
-                                        offset = start[offset_idx:]
+                                    offset_idx = start_datetime.rfind("-")
+                                    if (
+                                            offset_idx > 10
+                                    ):  # Make sure we're looking at timezone, not date
+                                        offset = start_datetime[offset_idx:]
                                         if len(offset) == 5:  # -0400 format
                                             new_offset = f"{offset[:3]}:{offset[3:]}"
-                                            start = start[
+                                            start_datetime = (
+                                                    start_datetime[
                                                         :offset_idx] + new_offset
+                                            )
                                 # For Z format like 2023-12-31T14:00:00Z
-                                start = start.replace('Z', '+00:00')
-                                start_datetime = datetime.fromisoformat(start)
+                                start_datetime = start_datetime.replace("Z",
+                                                                        "+00:00")
+                                start_datetime = datetime.fromisoformat(
+                                    start_datetime)
                             except ValueError as e:
                                 log.warning(
-                                    f"Could not parse date '{start}': {str(e)}")
+                                    f"Could not parse date '{start_datetime}': {str(e)}"
+                                )
                                 # Continue with the original string if parsing fails
                                 pass
 
                         log.info(
-                            f"Found workshop: {title}, code: {event_code}, seats left: {seats_left}, status: {status}")
+                            f"Found workshop: {title}, code: {event_code}, seats left: {seats_left}, status: {status}"
+                        )
 
                         if seats_left == 0:
                             log.info(
-                                f"{title} starts on {start} is fully registered")
+                                f"{title} starts on {start_datetime} is fully registered"
+                            )
                             continue
                         if event_type != "KID":
                             log.info(
@@ -411,30 +429,35 @@ async def run2(proxy: str = None, port: int = None) -> None:
                         log.info("Sending new alert...")
 
                         # General workshop page link
-                        workshop_page_link = "https://www.homedepot.ca/workshops?store=7265"
+                        workshop_page_link = (
+                            "https://www.homedepot.ca/workshops?store=7265"
+                        )
 
                         # Build a direct registration link if possible
-                        registration_link = f"https://www.homedepot.ca/workshops?storeId=7265"
+                        registration_link = (
+                            f"https://www.homedepot.ca/workshops?storeId=7265"
+                        )
 
                         # Send standard alert for continuity
-                        msg = f"*<{workshop_page_link}|{title}>* starts on *{start}* is open for registration: {workshop_page_link}"
+                        msg = f"*<{workshop_page_link}|{title}>* starts on *{start_datetime}* is open for registration: {workshop_page_link}"
                         send_slack_message(msg)
 
                         # Also send an urgent, high-visibility alert for time-sensitive workshops
                         from service.alert import send_urgent_workshop_alert
 
                         # Format date in a more readable way if possible
-                        formatted_date = start
+                        formatted_date = start_datetime
                         if start_datetime:
                             formatted_date = start_datetime.strftime(
-                                "%A, %B %d, %Y at %I:%M %p")
+                                "%A, %B %d, %Y at %I:%M %p"
+                            )
 
                         # Create workshop details for the urgent alert
                         workshop_details = {
-                            'title': title,
-                            'date': formatted_date,
-                            'event_code': event_code,
-                            'seats_left': seats_left
+                            "title": title,
+                            "date": formatted_date,
+                            "event_code": event_code,
+                            "seats_left": seats_left,
                         }
 
                         # Send the urgent alert with direct registration link
@@ -445,12 +468,12 @@ async def run2(proxy: str = None, port: int = None) -> None:
                         update_last_alert_date("home_depo", current_date)
 
                         # Check for specific workshops to register automatically
-                        if event_code.startswith("KW"):
+                        if should_register_workshop(workshop_id, event_date):
                             registration_msg = (
                                 f"Attempting to register for workshop: \n"
                                 f"• Event Code: *{event_code}*\n"
                                 f"• Title: *{title}*\n"
-                                f"• Date: *{start}*\n"
+                                f"• Date: *{event_date}*\n"
                                 f"• Seats Left: *{seats_left}*"
                             )
                             log.info(registration_msg)
@@ -464,7 +487,7 @@ async def run2(proxy: str = None, port: int = None) -> None:
                                     f"✅ Successfully registered:\n"
                                     f"• Event: *{title}*\n"
                                     f"• Code: *{event_code}*\n"
-                                    f"• Date: *{start}*\n"
+                                    f"• Date: *{start_datetime}*\n"
                                     f"• Link: {registration_link}"
                                 )
                                 log.info(success_msg)
@@ -480,36 +503,37 @@ async def run2(proxy: str = None, port: int = None) -> None:
                                 send_slack_message(error_msg)
                         else:
                             log.info(
-                                f"Skipping registration for non-KW event code: {event_code}")
+                                f"Skipping registration for non-KW event code: {event_code}"
+                            )
                 except json.JSONDecodeError as e:
                     error_msg = f"Failed to decode JSON response: {e}"
                     log.error(error_msg)
                     log.error(f"Response content was: {text_content[:500]}")
                     from service.alert import send_api_error_alert
+
                     send_api_error_alert(
                         "Home Depot API",
                         "JSON parsing error",
-                        f"Error: {str(e)}\nFirst 500 chars of response: {text_content[:500]}"
+                        f"Error: {str(e)}\nFirst 500 chars of response: {text_content[:500]}",
                     )
                     return
             else:
                 error_msg = "Received empty response from Home Depot API"
                 log.error(error_msg)
                 from service.alert import send_api_error_alert
-                send_api_error_alert(
-                    "Home Depot API",
-                    error_msg,
-                    f"URL: {target_url}"
-                )
+
+                send_api_error_alert("Home Depot API", error_msg,
+                                     f"URL: {target_url}")
                 return
         except Exception as e:
             error_msg = f"Unexpected error accessing Home Depot API: {str(e)}"
             log.error(error_msg, exc_info=True)
             from service.alert import send_api_error_alert
+
             send_api_error_alert(
                 "Home Depot API",
                 "Unexpected error",
-                f"Error: {str(e)}\nURL: {target_url}"
+                f"Error: {str(e)}\nURL: {target_url}",
             )
             return
 
