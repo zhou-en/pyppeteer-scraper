@@ -65,7 +65,7 @@ async def test_playwright_api_request():
                     # Return the first event code for registration test
                     for event in content['workshopEventWsDTO']:
                         if event.get("workshopType") == "KID" and event.get("remainingSeats", 0) > 0:
-                            return event.get("code")
+                            return event["eventType"]["workshopEventId"]
                 else:
                     log.info(f"Response keys: {list(content.keys())}")
             except json.JSONDecodeError as e:
@@ -115,7 +115,7 @@ def test_requests_api():
                     # Return the first event code for registration test
                     for event in json_data['workshopEventWsDTO']:
                         if event.get("workshopType") == "KID" and event.get("remainingSeats", 0) > 0:
-                            return event.get("code")
+                            return event["eventType"]["workshopEventId"]
                 else:
                     log.info(f"Response keys: {list(json_data.keys())}")
             except json.JSONDecodeError as e:

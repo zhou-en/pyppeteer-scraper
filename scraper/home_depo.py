@@ -354,10 +354,11 @@ async def run2(proxy: str = None, port: int = None) -> None:
 
                     for event in content['workshopEventWsDTO']:
                         event_type = event.get("workshopType", "")
-                        event_code = event.get("code", "")
+                        details = event.get("eventType", {})
+                        event_code = details.get("workshopEventId",
+                                                 "")  # FIX: get from eventType.workshopEventId
                         seats_left = event.get("remainingSeats", 0)
                         status = event.get("workshopStatus", "")
-                        details = event.get("eventType", {})
                         title = details.get("name", "Unknown workshop")
                         start = event.get("eventDate", "")
                         start_datetime = None
@@ -373,7 +374,7 @@ async def run2(proxy: str = None, port: int = None) -> None:
                                         if len(offset) == 5:  # -0400 format
                                             new_offset = f"{offset[:3]}:{offset[3:]}"
                                             start = start[
-                                                    :offset_idx] + new_offset
+                                                        :offset_idx] + new_offset
                                 # For Z format like 2023-12-31T14:00:00Z
                                 start = start.replace('Z', '+00:00')
                                 start_datetime = datetime.fromisoformat(start)

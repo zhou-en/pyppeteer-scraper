@@ -30,43 +30,63 @@ class TestHomeDepotScraper(unittest.TestCase):
         self.sample_workshop_response = {
             "workshopEventWsDTO": [
                 {
-                    "code": "KWTM12345",
+                    "code": "KWHC0002",
+                    "workshopId": "KWHC0002",
+                    "attendeeLimit": 96,
+                    "duration": "1.5",
+                    "closeDate": "2025-10-05T23:59:59-0400",
+                    "endTime": "2025-10-11T10:00:00-0400",
+                    "eventDate": "2025-10-11T08:30:00-0400",
+                    "startTime": "2025-10-11T08:30:00-0400",
+                    "workshopStatus": "ACTIVE",
                     "workshopType": "KID",
                     "remainingSeats": 5,
-                    "workshopStatus": "ACTIVE",
-                    "eventDate": "2023-12-31T14:00:00Z",
+                    "icsFile": {
+                        "code": "WS-EN-KWHC0002-1757696907415.ics",
+                        "url": "WS-EN-KWHC0002-1757696907415.ics"
+                    },
                     "eventType": {
-                        "name": "Test Kid Workshop"
+                        "workshopEventId": "WS00027",
+                        "code": "WS00027",
+                        "description": "If you are looking for a fun activity to do with the family, we’ve got a great workshop for kids that will teach them about building. Kids can learn how to build their very own Haunted Candy Box",
+                        "name": "Build a Haunted Candy Box",
+                        "shortCode": "KWHC",
+                        "thingsToKnow": "1. Please arrive on time\n2. Do not forget to bring a digital or printed copy of your confirmation email\n3. Please check in at the Service Desk when you come to the store\n4. Participants will not be required to perform any tasks. Workshop leader will demonstrate key skills to complete the given project.",
+                        "imageUrl": "https://www.homedepot.ca/content/dam/homedepot/images/workshops/2025/2025-KW-Oct.png",
+                        "photo": {
+                            "code": "https://www.homedepot.ca/content/dam/homedepot/images/workshops/2025/2025-KW-Oct.png",
+                            "url": "https://www.homedepot.ca/content/dam/homedepot/images/workshops/2025/2025-KW-Oct.png"
+                        }
                     }
                 },
                 {
-                    "code": "ADULT12345",
-                    "workshopType": "ADULT",
-                    "remainingSeats": 10,
+                    "code": "KWHC0003",
+                    "workshopId": "KWHC0003",
+                    "attendeeLimit": 96,
+                    "duration": "1.5",
+                    "closeDate": "2025-10-05T23:59:59-0400",
+                    "endTime": "2025-10-11T12:00:00-0400",
+                    "eventDate": "2025-10-11T10:30:00-0400",
+                    "startTime": "2025-10-11T10:30:00-0400",
                     "workshopStatus": "ACTIVE",
-                    "eventDate": "2023-12-31T16:00:00Z",
-                    "eventType": {
-                        "name": "Test Adult Workshop"
-                    }
-                },
-                {
-                    "code": "KWTM67890",
                     "workshopType": "KID",
                     "remainingSeats": 0,
-                    "workshopStatus": "ACTIVE",
-                    "eventDate": "2023-12-31T15:00:00Z",
+                    "icsFile": {
+                        "code": "WS-EN-KWHC0003-1757696997915.ics",
+                        "url": "WS-EN-KWHC0003-1757696997915.ics"
+                    },
                     "eventType": {
-                        "name": "Full Kid Workshop"
-                    }
-                },
-                {
-                    "code": "KWTM54321",
-                    "workshopType": "KID",
-                    "remainingSeats": 3,
-                    "workshopStatus": "INACTIVE",
-                    "eventDate": "2023-12-31T17:00:00Z",
-                    "eventType": {
-                        "name": "Inactive Kid Workshop"
+                        "workshopEventId": "WS00027",
+                        "code": "WS00027",
+                        "description": "If you are looking for a fun activity to do with the family, we’ve got a great workshop for kids that will teach them about building. Kids can learn how to build their very own Haunted Candy Box",
+                        "name": "Build a Haunted Candy Box",
+                        "shortCode": "KWHC",
+                        "thingsToKnow": "1. Please arrive on time\n2. Do not forget to bring a digital or printed copy of your confirmation email\n3. Please check in at the Service Desk when you come to the store\n4. Participants will not be required to perform any tasks. Workshop leader will demonstrate key skills to complete the given project.",
+                        "imageUrl": "https://www.homedepot.ca/content/dam/homedepot/images/workshops/2025/2025-KW-Oct.png",
+                        "photo": {
+                            "code": "https://www.homedepot.ca/content/dam/homedepot/images/workshops/2025/2025-KW-Oct.png",
+                            "url": "https://www.homedepot.ca/content/dam/homedepot/images/workshops/2025/2025-KW-Oct.png"
+                        }
                     }
                 }
             ]
