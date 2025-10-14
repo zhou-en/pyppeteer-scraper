@@ -17,8 +17,8 @@ load_dotenv()
 BROWSER_PATH = os.environ.get("BROWSER_PATH")
 if platform.system() != "Darwin":
     if (
-            "/home/pi/Projects/pyppeteer-scraper" not in sys.path
-            and "/home/pi" in ",".join(sys.path)
+        "/home/pi/Projects/pyppeteer-scraper" not in sys.path
+        and "/home/pi" in ",".join(sys.path)
     ):
         sys.path.append("/home/pi/Projects/pyppeteer-scraper")
 
@@ -179,13 +179,13 @@ def send_home_depo_alert(workshop: dict, link):
 
 
 def register_home_depot_workshop(
-        event_code,
-        first_name="En",
-        last_name="Zhou",
-        email="zhouen.nathan@gmail.com",
-        store_id="7265",
-        participant_count=2,
-        dry_run=False,
+    event_code,
+    first_name="En",
+    last_name="Zhou",
+    email="zhouen.nathan@gmail.com",
+    store_id="7265",
+    participant_count=2,
+    dry_run=False,
 ):
     """
     Register for a Home Depot workshop
@@ -202,8 +202,7 @@ def register_home_depot_workshop(
     """
     from service.alert import send_api_error_alert
 
-    log.info(
-        f"Attempting to register for workshop with event code: {event_code}")
+    log.info(f"Attempting to register for workshop with event code: {event_code}")
 
     url = f"https://www.homedepot.ca/api/workshopsvc/v1/workshops/WS00023/events/{event_code}/signups?lang=en"
     log.info(f"Registration URL: {url}")
@@ -215,8 +214,7 @@ def register_home_depot_workshop(
     log.info(f"Request headers: {headers}")
 
     payload = {
-        "customer": {"firstName": first_name, "lastName": last_name,
-                     "email": email},
+        "customer": {"firstName": first_name, "lastName": last_name, "email": email},
         "workshopEventCode": event_code,
         "store": store_id,
         "participantCount": participant_count,
@@ -230,8 +228,7 @@ def register_home_depot_workshop(
         return True, json.dumps(
             {
                 "dry_run": True,
-                "would_send": {"url": url, "headers": headers,
-                               "payload": payload},
+                "would_send": {"url": url, "headers": headers, "payload": payload},
             }
         )
 
@@ -292,7 +289,7 @@ def register_home_depot_workshop(
 
 
 def should_register_workshop(workshop_id, event_date):
-    if workshop_id.startswith("KWHC") and "8:30" in event_date:
+    if workshop_id.startswith("KW") and "8:30" in event_date:
         return True
     return False
 
@@ -351,8 +348,7 @@ async def run2(proxy: str = None, port: int = None) -> None:
                         )
                         return
 
-                    log.info(
-                        f"{json.dumps(content['workshopEventWsDTO'], indent=4)}")
+                    log.info(f"{json.dumps(content['workshopEventWsDTO'], indent=4)}")
 
                     if not content.get("workshopEventWsDTO"):
                         log.info("No workshop events found")
@@ -374,25 +370,21 @@ async def run2(proxy: str = None, port: int = None) -> None:
                             try:
                                 # Handle ISO format with different timezone formats
                                 # For formats like 2025-08-09T08:30:00-0400
-                                if "-" in start_datetime and len(
-                                        start_datetime) > 20:
+                                if "-" in start_datetime and len(start_datetime) > 20:
                                     # Convert -0400 format to -04:00 which fromisoformat can handle
                                     offset_idx = start_datetime.rfind("-")
                                     if (
-                                            offset_idx > 10
+                                        offset_idx > 10
                                     ):  # Make sure we're looking at timezone, not date
                                         offset = start_datetime[offset_idx:]
                                         if len(offset) == 5:  # -0400 format
                                             new_offset = f"{offset[:3]}:{offset[3:]}"
                                             start_datetime = (
-                                                    start_datetime[
-                                                        :offset_idx] + new_offset
+                                                start_datetime[:offset_idx] + new_offset
                                             )
                                 # For Z format like 2023-12-31T14:00:00Z
-                                start_datetime = start_datetime.replace("Z",
-                                                                        "+00:00")
-                                start_datetime = datetime.fromisoformat(
-                                    start_datetime)
+                                start_datetime = start_datetime.replace("Z", "+00:00")
+                                start_datetime = datetime.fromisoformat(start_datetime)
                             except ValueError as e:
                                 log.warning(
                                     f"Could not parse date '{start_datetime}': {str(e)}"
@@ -410,8 +402,7 @@ async def run2(proxy: str = None, port: int = None) -> None:
                             )
                             continue
                         if event_type != "KID":
-                            log.info(
-                                f"{title} is not a kid workshop, skipping...")
+                            log.info(f"{title} is not a kid workshop, skipping...")
                             continue
                         if status != "ACTIVE":
                             log.info(f"{title} is not active, skipping...")
@@ -461,8 +452,7 @@ async def run2(proxy: str = None, port: int = None) -> None:
                         }
 
                         # Send the urgent alert with direct registration link
-                        send_urgent_workshop_alert(workshop_details,
-                                                   registration_link)
+                        send_urgent_workshop_alert(workshop_details, registration_link)
 
                         # Update last alert date
                         update_last_alert_date("home_depo", current_date)
@@ -480,8 +470,7 @@ async def run2(proxy: str = None, port: int = None) -> None:
                             send_slack_message(registration_msg)
 
                             log.info(f"Registering workshop {event_code}...")
-                            success, response = register_home_depot_workshop(
-                                event_code)
+                            success, response = register_home_depot_workshop(event_code)
                             if success:
                                 success_msg = (
                                     f"✅ Successfully registered:\n"
@@ -522,8 +511,7 @@ async def run2(proxy: str = None, port: int = None) -> None:
                 log.error(error_msg)
                 from service.alert import send_api_error_alert
 
-                send_api_error_alert("Home Depot API", error_msg,
-                                     f"URL: {target_url}")
+                send_api_error_alert("Home Depot API", error_msg, f"URL: {target_url}")
                 return
         except Exception as e:
             error_msg = f"Unexpected error accessing Home Depot API: {str(e)}"
