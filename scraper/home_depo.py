@@ -180,6 +180,7 @@ def send_home_depo_alert(workshop: dict, link):
 
 def register_home_depot_workshop(
     event_code,
+    workshop_event_id,
     first_name="En",
     last_name="Zhou",
     email="zhouen.nathan@gmail.com",
@@ -190,7 +191,8 @@ def register_home_depot_workshop(
     """
     Register for a Home Depot workshop
     Args:
-        event_code: The specific event code
+        event_code: The specific event code (e.g., "KWBE0001")
+        workshop_event_id: The workshop event ID (e.g., "WS00029")
         first_name: First name for registration
         last_name: Last name for registration
         email: Email for registration
@@ -202,9 +204,11 @@ def register_home_depot_workshop(
     """
     from service.alert import send_api_error_alert
 
-    log.info(f"Attempting to register for workshop with event code: {event_code}")
+    log.info(
+        f"Attempting to register for workshop with event code: {event_code}, workshop event ID: {workshop_event_id}"
+    )
 
-    url = f"https://www.homedepot.ca/api/workshopsvc/v1/workshops/WS00023/events/{event_code}/signups?lang=en"
+    url = f"https://www.homedepot.ca/api/workshopsvc/v1/workshops/{workshop_event_id}/events/{event_code}/signups?lang=en"
     log.info(f"Registration URL: {url}")
 
     headers = {
@@ -288,10 +292,40 @@ def register_home_depot_workshop(
         return False, str(e)
 
 
-def should_register_workshop(workshop_id, event_date):
-    if workshop_id.startswith("KW") and "8:30" in event_date:
-        return True
-    return False
+def should_register_workshop(workshop_id, start_time, attendee_limit, remaining_seats):
+    """
+    Determine if we should register for this workshop.
+
+    Args:
+        workshop_id: The workshop ID (e.g., "KWHC0002", "KWBE0001")
+        start_time: The start time string (e.g., "2025-10-11T08:30:00-0400")
+        attendee_limit: Total number of seats available
+        remaining_seats: Number of seats remaining
+
+    Returns:
+        tuple: (should_register: bool, reason: str)
+    """
+    # Check if workshop ID starts with "KW" (Kids Workshop)
+    if not workshop_id.startswith("KW"):
+        return False, f"Workshop ID '{workshop_id}' does not start with 'KW'"
+
+    # Check if start time is 8:30
+    if "08:30" not in start_time:
+        return False, f"Start time is not 8:30 AM"
+
+    # Don't be the first to register - wait until at least 1 person has registered
+    seats_taken = attendee_limit - remaining_seats
+    if seats_taken < 1:
+        return (
+            False,
+            f"No one has registered yet (seats taken: {seats_taken}). Waiting for someone else to register first.",
+        )
+
+    # All conditions met
+    return (
+        True,
+        f"Workshop matches criteria: ID starts with 'KW', starts at 8:30 AM, and {seats_taken} person(s) already registered",
+    )
 
 
 async def run2(proxy: str = None, port: int = None) -> None:
@@ -362,32 +396,34 @@ async def run2(proxy: str = None, port: int = None) -> None:
                             "workshopEventId", ""
                         )  # FIX: get from eventType.workshopEventId
                         seats_left = event.get("remainingSeats", 0)
+                        attendee_limit = event.get("attendeeLimit", 0)
                         status = event.get("workshopStatus", "")
                         title = details.get("name", "Unknown workshop")
                         event_date = event.get("eventDate", "")
-                        start_datetime = event.get("startTime", "")
-                        if start_datetime:
+                        start_time_str = event.get("startTime", "")
+                        start_datetime = start_time_str
+                        if start_time_str:
                             try:
                                 # Handle ISO format with different timezone formats
                                 # For formats like 2025-08-09T08:30:00-0400
-                                if "-" in start_datetime and len(start_datetime) > 20:
+                                if "-" in start_time_str and len(start_time_str) > 20:
                                     # Convert -0400 format to -04:00 which fromisoformat can handle
-                                    offset_idx = start_datetime.rfind("-")
+                                    offset_idx = start_time_str.rfind("-")
                                     if (
                                         offset_idx > 10
                                     ):  # Make sure we're looking at timezone, not date
-                                        offset = start_datetime[offset_idx:]
+                                        offset = start_time_str[offset_idx:]
                                         if len(offset) == 5:  # -0400 format
                                             new_offset = f"{offset[:3]}:{offset[3:]}"
-                                            start_datetime = (
-                                                start_datetime[:offset_idx] + new_offset
+                                            start_time_str = (
+                                                start_time_str[:offset_idx] + new_offset
                                             )
                                 # For Z format like 2023-12-31T14:00:00Z
-                                start_datetime = start_datetime.replace("Z", "+00:00")
-                                start_datetime = datetime.fromisoformat(start_datetime)
+                                start_time_str = start_time_str.replace("Z", "+00:00")
+                                start_datetime = datetime.fromisoformat(start_time_str)
                             except ValueError as e:
                                 log.warning(
-                                    f"Could not parse date '{start_datetime}': {str(e)}"
+                                    f"Could not parse date '{start_time_str}': {str(e)}"
                                 )
                                 # Continue with the original string if parsing fails
                                 pass
@@ -438,7 +474,7 @@ async def run2(proxy: str = None, port: int = None) -> None:
 
                         # Format date in a more readable way if possible
                         formatted_date = start_datetime
-                        if start_datetime:
+                        if isinstance(start_datetime, datetime):
                             formatted_date = start_datetime.strftime(
                                 "%A, %B %d, %Y at %I:%M %p"
                             )
@@ -458,25 +494,41 @@ async def run2(proxy: str = None, port: int = None) -> None:
                         update_last_alert_date("home_depo", current_date)
 
                         # Check for specific workshops to register automatically
-                        if should_register_workshop(workshop_id, event_date):
+                        # Use the original start time string from API for the check
+                        start_time_for_check = event.get("startTime", "")
+                        should_register, reason = should_register_workshop(
+                            workshop_id,
+                            start_time_for_check,
+                            attendee_limit,
+                            seats_left,
+                        )
+
+                        if should_register:
                             registration_msg = (
-                                f"Attempting to register for workshop: \n"
+                                f"🎯 Auto-registering for workshop:\n"
                                 f"• Event Code: *{event_code}*\n"
+                                f"• Workshop ID: *{workshop_id}*\n"
                                 f"• Title: *{title}*\n"
-                                f"• Date: *{event_date}*\n"
-                                f"• Seats Left: *{seats_left}*"
+                                f"• Date: *{formatted_date}*\n"
+                                f"• Seats Left: *{seats_left}*\n"
+                                f"• Reason: {reason}"
                             )
                             log.info(registration_msg)
                             send_slack_message(registration_msg)
 
-                            log.info(f"Registering workshop {event_code}...")
-                            success, response = register_home_depot_workshop(event_code)
+                            log.info(
+                                f"Registering workshop - Event Code: {event_code}, Workshop Event ID: {event_code}..."
+                            )
+                            success, response = register_home_depot_workshop(
+                                workshop_id, event_code
+                            )
                             if success:
                                 success_msg = (
                                     f"✅ Successfully registered:\n"
                                     f"• Event: *{title}*\n"
-                                    f"• Code: *{event_code}*\n"
-                                    f"• Date: *{start_datetime}*\n"
+                                    f"• Workshop ID: *{workshop_id}*\n"
+                                    f"• Workshop Event ID: *{event_code}*\n"
+                                    f"• Date: *{formatted_date}*\n"
                                     f"• Link: {registration_link}"
                                 )
                                 log.info(success_msg)
@@ -485,15 +537,24 @@ async def run2(proxy: str = None, port: int = None) -> None:
                                 error_msg = (
                                     f"❌ Registration failed for:\n"
                                     f"• Event: *{title}*\n"
-                                    f"• Code: *{event_code}*\n"
+                                    f"• Workshop ID: *{workshop_id}*\n"
+                                    f"• Workshop Event ID: *{event_code}*\n"
                                     f"• Error: {response}"
                                 )
                                 log.error(error_msg)
                                 send_slack_message(error_msg)
                         else:
-                            log.info(
-                                f"Skipping registration for non-KW event code: {event_code}"
+                            # Send notification that registration was skipped with reason
+                            skip_msg = (
+                                f"⏭️ Skipping auto-registration:\n"
+                                f"• Event: *{title}*\n"
+                                f"• Workshop ID: *{workshop_id}*\n"
+                                f"• Date: *{formatted_date}*\n"
+                                f"• Seats Left: *{seats_left}*\n"
+                                f"• Reason: {reason}"
                             )
+                            log.info(skip_msg)
+                            send_slack_message(skip_msg)
                 except json.JSONDecodeError as e:
                     error_msg = f"Failed to decode JSON response: {e}"
                     log.error(error_msg)
