@@ -18,7 +18,7 @@ from scraper.home_depo import register_home_depot_workshop, run2
 
 # Mock the entire slack WebClient class at module level
 # This prevents any actual Slack API calls during testing
-@patch('slack.WebClient')
+@patch("slack.WebClient")
 class TestHomeDepotScraper(unittest.TestCase):
     """
     Test suite for the Home Depot scraper functionality
@@ -43,7 +43,7 @@ class TestHomeDepotScraper(unittest.TestCase):
                     "remainingSeats": 5,
                     "icsFile": {
                         "code": "WS-EN-KWHC0002-1757696907415.ics",
-                        "url": "WS-EN-KWHC0002-1757696907415.ics"
+                        "url": "WS-EN-KWHC0002-1757696907415.ics",
                     },
                     "eventType": {
                         "workshopEventId": "WS00027",
@@ -55,9 +55,9 @@ class TestHomeDepotScraper(unittest.TestCase):
                         "imageUrl": "https://www.homedepot.ca/content/dam/homedepot/images/workshops/2025/2025-KW-Oct.png",
                         "photo": {
                             "code": "https://www.homedepot.ca/content/dam/homedepot/images/workshops/2025/2025-KW-Oct.png",
-                            "url": "https://www.homedepot.ca/content/dam/homedepot/images/workshops/2025/2025-KW-Oct.png"
-                        }
-                    }
+                            "url": "https://www.homedepot.ca/content/dam/homedepot/images/workshops/2025/2025-KW-Oct.png",
+                        },
+                    },
                 },
                 {
                     "code": "KWHC0003",
@@ -73,7 +73,7 @@ class TestHomeDepotScraper(unittest.TestCase):
                     "remainingSeats": 0,
                     "icsFile": {
                         "code": "WS-EN-KWHC0003-1757696997915.ics",
-                        "url": "WS-EN-KWHC0003-1757696997915.ics"
+                        "url": "WS-EN-KWHC0003-1757696997915.ics",
                     },
                     "eventType": {
                         "workshopEventId": "WS00027",
@@ -85,30 +85,32 @@ class TestHomeDepotScraper(unittest.TestCase):
                         "imageUrl": "https://www.homedepot.ca/content/dam/homedepot/images/workshops/2025/2025-KW-Oct.png",
                         "photo": {
                             "code": "https://www.homedepot.ca/content/dam/homedepot/images/workshops/2025/2025-KW-Oct.png",
-                            "url": "https://www.homedepot.ca/content/dam/homedepot/images/workshops/2025/2025-KW-Oct.png"
-                        }
-                    }
-                }
+                            "url": "https://www.homedepot.ca/content/dam/homedepot/images/workshops/2025/2025-KW-Oct.png",
+                        },
+                    },
+                },
             ]
         }
 
         # Sample registration success response
         self.sample_registration_success = {
             "success": True,
-            "message": "Registration successful"
+            "message": "Registration successful",
         }
 
         # Sample registration failure response
         self.sample_registration_failure = {
             "success": False,
-            "message": "Registration failed - workshop is full"
+            "message": "Registration failed - workshop is full",
         }
 
     # Fix 1: Correcting the mock paths to 'service.alert' instead of 'scraper.home_depo'
-    @patch('service.alert.send_slack_message')
-    @patch('service.alert.send_api_error_alert')
-    @patch('requests.post')
-    def test_register_workshop_success(self, mock_post, mock_api_alert, mock_slack, mock_webclient):
+    @patch("service.alert.send_slack_message")
+    @patch("service.alert.send_api_error_alert")
+    @patch("requests.post")
+    def test_register_workshop_success(
+        self, mock_post, mock_api_alert, mock_slack, mock_webclient
+    ):
         """Test successful workshop registration"""
         # Configure the mock
         mock_response = MagicMock()
@@ -119,15 +121,17 @@ class TestHomeDepotScraper(unittest.TestCase):
         mock_post.return_value = mock_response
 
         event_code = "KWTM12345"
+        workshop_event_id = "WS00025"
 
-        # Call the function
+        # Call the function with both required parameters
         success, response = register_home_depot_workshop(
-            event_code,
+            event_code,  # workshop ID (e.g., "KWTM12345")
+            workshop_event_id,  # workshop event ID (e.g., "WS00025")
             first_name="Test",
             last_name="User",
             email="test@example.com",
             store_id="7265",
-            participant_count=2
+            participant_count=2,
         )
 
         # Assertions
@@ -137,17 +141,29 @@ class TestHomeDepotScraper(unittest.TestCase):
 
         # Check that the request was made with the correct parameters
         call_args = mock_post.call_args
-        url = call_args[0][0] if len(call_args[0]) > 0 else call_args[1].get('url')
-        self.assertIn(event_code, url, f"URL should contain event code {event_code}, but was {url}")
+        url = call_args[0][0] if len(call_args[0]) > 0 else call_args[1].get("url")
+        # URL should contain workshop_event_id/events/event_code
+        self.assertIn(
+            workshop_event_id,
+            url,
+            f"URL should contain workshop event ID {workshop_event_id}, but was {url}",
+        )
+        self.assertIn(
+            event_code,
+            url,
+            f"URL should contain event code {event_code}, but was {url}",
+        )
 
         # Check that the payload contains the correct information
-        json_data = call_args[1].get('json', {})
-        self.assertEqual(json_data.get('customer', {}).get('firstName'), "Test")
+        json_data = call_args[1].get("json", {})
+        self.assertEqual(json_data.get("customer", {}).get("firstName"), "Test")
 
-    @patch('service.alert.send_slack_message')
-    @patch('service.alert.send_api_error_alert')
-    @patch('requests.post')
-    def test_register_workshop_failure(self, mock_post, mock_api_alert, mock_slack, mock_webclient):
+    @patch("service.alert.send_slack_message")
+    @patch("service.alert.send_api_error_alert")
+    @patch("requests.post")
+    def test_register_workshop_failure(
+        self, mock_post, mock_api_alert, mock_slack, mock_webclient
+    ):
         """Test failed workshop registration"""
         # Configure the mock
         mock_response = MagicMock()
@@ -157,12 +173,13 @@ class TestHomeDepotScraper(unittest.TestCase):
         mock_response.text = json.dumps(self.sample_registration_failure)
         mock_post.return_value = mock_response
 
-        # Call the function
+        # Call the function with both required parameters
         success, response = register_home_depot_workshop(
-            "KWTM12345",
+            "KWTM12345",  # event_code (workshop ID)
+            "WS00025",  # workshop_event_id
             first_name="Test",
             last_name="User",
-            email="test@example.com"
+            email="test@example.com",
         )
 
         # Assertions
@@ -174,16 +191,20 @@ class TestHomeDepotScraper(unittest.TestCase):
         args, kwargs = mock_api_alert.call_args
         self.assertIn("failed", args[1])
 
-    @patch('service.alert.send_slack_message')
-    @patch('service.alert.send_api_error_alert')
-    @patch('requests.post')
-    def test_register_workshop_exception(self, mock_post, mock_api_alert, mock_slack, mock_webclient):
+    @patch("service.alert.send_slack_message")
+    @patch("service.alert.send_api_error_alert")
+    @patch("requests.post")
+    def test_register_workshop_exception(
+        self, mock_post, mock_api_alert, mock_slack, mock_webclient
+    ):
         """Test exception handling in workshop registration"""
         # Configure the mock to raise an exception
         mock_post.side_effect = requests.exceptions.RequestException("Network error")
 
-        # Call the function
-        success, response = register_home_depot_workshop("KWTM12345")
+        # Call the function with both required parameters
+        success, response = register_home_depot_workshop(
+            "KWTM12345", "WS00025"  # event_code (workshop ID)  # workshop_event_id
+        )
 
         # Assertions
         self.assertFalse(success)
@@ -195,21 +216,34 @@ class TestHomeDepotScraper(unittest.TestCase):
         self.assertIn("error", args[1].lower())
 
     # Fix 2: Using a proper async test method that correctly awaits coroutines
-    @patch('scraper.home_depo.register_home_depot_workshop')
-    @patch('service.alert.send_urgent_workshop_alert')
-    @patch('scraper.home_depo.send_slack_message')
-    @patch('service.alert.send_slack_message')
-    @patch('scraper.home_depo.update_last_alert_date')
-    @patch('scraper.home_depo.get_last_alert_date')
-    @patch('service.alert.send_api_error_alert')      # Only patch at source
-    @patch('playwright.async_api.async_playwright')
-    def test_run2_workshop_processing(self, mock_playwright, mock_api_alert_source,
-                                     mock_get_date, mock_update_date,
-                                     mock_slack_source, mock_slack_imported, mock_urgent,
-                                     mock_register, mock_webclient):
+    @patch("service.alert.save_registered_workshop")
+    @patch("service.alert.is_workshop_registered")
+    @patch("scraper.home_depo.register_home_depot_workshop")
+    @patch("service.alert.send_urgent_workshop_alert")
+    @patch("scraper.home_depo.send_slack_message")
+    @patch("service.alert.send_slack_message")
+    @patch("scraper.home_depo.update_last_alert_date")
+    @patch("scraper.home_depo.get_last_alert_date")
+    @patch("service.alert.send_api_error_alert")  # Only patch at source
+    @patch("playwright.async_api.async_playwright")
+    def test_run2_workshop_processing(
+        self,
+        mock_playwright,
+        mock_api_alert_source,
+        mock_get_date,
+        mock_update_date,
+        mock_slack_source,
+        mock_slack_imported,
+        mock_urgent,
+        mock_register,
+        mock_is_registered,
+        mock_save_registration,
+        mock_webclient,
+    ):
         """Test the main run2 function's workshop processing logic"""
         # Set up mocks
         mock_get_date.return_value = None  # No previous alert
+        mock_is_registered.return_value = False  # Not already registered
         mock_register.return_value = (True, "Success")
         mock_slack_imported.return_value = True
         mock_slack_source.return_value = True
@@ -229,7 +263,7 @@ class TestHomeDepotScraper(unittest.TestCase):
                     "attendeeLimit": 96,
                     "duration": "1.5",
                     "closeDate": "2025-08-03T23:59:59-04:00",  # Fixed format
-                    "endTime": "2025-08-09T10:00:00-04:00",    # Fixed format
+                    "endTime": "2025-08-09T10:00:00-04:00",  # Fixed format
                     "eventDate": "2025-08-09T08:30:00-04:00",  # Fixed format
                     "startTime": "2025-08-09T08:30:00-04:00",  # Fixed format
                     "workshopStatus": "ACTIVE",
@@ -239,10 +273,10 @@ class TestHomeDepotScraper(unittest.TestCase):
                         "workshopEventId": "WS00025",
                         "code": "WS00025",
                         "name": "Build a Space Odyssey",
-                        "shortCode": "KWSO"
-                    }
+                        "shortCode": "KWSO",
+                    },
                 }
-            ]
+            ],
         }
 
         # Create mock context and response
@@ -273,13 +307,15 @@ class TestHomeDepotScraper(unittest.TestCase):
         mock_urgent.assert_called()
         mock_update_date.assert_called()
 
-        # Should attempt to register for workshops that start with KWSO
-        # Our test data has code "KWSO0001" which doesn't match the KWTM pattern,
-        # so registration shouldn't be called
-        mock_register.assert_not_called()
+        # Should attempt to register for workshops that start with "KW" and start at 8:30 AM
+        # Our test data has code "KWSO0001" which matches these criteria (starts with KW, starts at 08:30)
+        # Since remainingSeats=5 and attendeeLimit=96, that means 91 people have registered (>= 1)
+        # so registration SHOULD be called
+        mock_register.assert_called_once_with("KWSO0001", "WS00025")
+        mock_save_registration.assert_called_once()
 
-    @patch('service.alert.send_api_error_alert')
-    @patch('playwright.async_api.async_playwright')
+    @patch("service.alert.send_api_error_alert")
+    @patch("playwright.async_api.async_playwright")
     def test_run2_api_error(self, mock_playwright, mock_api_alert, mock_webclient):
         """Test handling of API errors in run2"""
         # Create mock context and error response
@@ -303,9 +339,11 @@ class TestHomeDepotScraper(unittest.TestCase):
         args, kwargs = mock_api_alert.call_args
         self.assertIn("500", args[2])  # Error details should mention status code
 
-    @patch('service.alert.send_api_error_alert')
-    @patch('playwright.async_api.async_playwright')
-    def test_run2_json_parse_error(self, mock_playwright, mock_api_alert, mock_webclient):
+    @patch("service.alert.send_api_error_alert")
+    @patch("playwright.async_api.async_playwright")
+    def test_run2_json_parse_error(
+        self, mock_playwright, mock_api_alert, mock_webclient
+    ):
         """Test handling of JSON parsing errors"""
         # Create mock context and invalid JSON response
         mock_context = AsyncMock()
@@ -313,7 +351,9 @@ class TestHomeDepotScraper(unittest.TestCase):
         mock_response.status = 200
         mock_response.headers = {"Content-Type": "application/json"}
         mock_response.text.return_value = "{ invalid json }"
-        mock_response.json.side_effect = json.JSONDecodeError("Invalid JSON", "{ invalid json }", 0)
+        mock_response.json.side_effect = json.JSONDecodeError(
+            "Invalid JSON", "{ invalid json }", 0
+        )
 
         # Configure playwright mock
         mock_playwright_instance = AsyncMock()
@@ -329,9 +369,11 @@ class TestHomeDepotScraper(unittest.TestCase):
         args, kwargs = mock_api_alert.call_args
         self.assertEqual(args[1], "JSON parsing error")
 
-    @patch('service.alert.send_api_error_alert')
-    @patch('playwright.async_api.async_playwright')
-    def test_run2_missing_data_structure(self, mock_playwright, mock_api_alert, mock_webclient):
+    @patch("service.alert.send_api_error_alert")
+    @patch("playwright.async_api.async_playwright")
+    def test_run2_missing_data_structure(
+        self, mock_playwright, mock_api_alert, mock_webclient
+    ):
         """Test handling of missing expected data structure"""
         # Create mock context and response with missing key
         mock_context = AsyncMock()

@@ -1,3 +1,4 @@
+import datetime
 import json
 import os
 import sys
@@ -13,15 +14,18 @@ from service.alert import (
     get_last_alert_date,
     update_last_alert_date,
     send_email_with_attachment,
+    get_registered_workshops,
+    is_workshop_registered,
+    save_registered_workshop,
 )
 
 
 class TestSlackMessage(unittest.TestCase):
-    @patch('service.alert.client.chat_postMessage')
-    @patch('service.alert.get_owner_id')
+    @patch("service.alert.client.chat_postMessage")
+    @patch("service.alert.get_owner_id")
     def test_send_slack_message_success(self, mock_get_owner, mock_post_message):
         # Setup mocks
-        mock_get_owner.return_value = 'U12345678'
+        mock_get_owner.return_value = "U12345678"
         mock_post_message.return_value = {"ok": True}
 
         # Call function
@@ -37,12 +41,14 @@ class TestSlackMessage(unittest.TestCase):
         self.assertIn("<@U12345678>", kwargs["blocks"][0]["text"]["text"])
         self.assertIn("Test message", kwargs["blocks"][0]["text"]["text"])
 
-    @patch('service.alert.client.chat_postMessage')
-    @patch('service.alert.client.files_upload')
-    @patch('service.alert.get_owner_id')
-    def test_send_slack_message_with_screenshot(self, mock_get_owner, mock_files_upload, mock_post_message):
+    @patch("service.alert.client.chat_postMessage")
+    @patch("service.alert.client.files_upload")
+    @patch("service.alert.get_owner_id")
+    def test_send_slack_message_with_screenshot(
+        self, mock_get_owner, mock_files_upload, mock_post_message
+    ):
         # Setup mocks
-        mock_get_owner.return_value = 'U12345678'
+        mock_get_owner.return_value = "U12345678"
         mock_post_message.return_value = {"ok": True}
         mock_files_upload.return_value = {"ok": True}
 
@@ -59,12 +65,14 @@ class TestSlackMessage(unittest.TestCase):
         self.assertEqual(kwargs["channels"], os.environ.get("CHANNEL_ID"))
         self.assertEqual(kwargs["file"], screenshot_path)
 
-    @patch('service.alert.client.chat_postMessage')
-    @patch('service.alert.get_owner_id')
-    @patch('service.alert.logging')
-    def test_send_slack_message_failure(self, mock_logging, mock_get_owner, mock_post_message):
+    @patch("service.alert.client.chat_postMessage")
+    @patch("service.alert.get_owner_id")
+    @patch("service.alert.logging")
+    def test_send_slack_message_failure(
+        self, mock_logging, mock_get_owner, mock_post_message
+    ):
         # Setup mocks
-        mock_get_owner.return_value = 'U12345678'
+        mock_get_owner.return_value = "U12345678"
         mock_post_message.return_value = {"ok": False}
 
         # Call function
@@ -73,15 +81,15 @@ class TestSlackMessage(unittest.TestCase):
         # Check logging of failure
         mock_logging.info.assert_any_call("Failed to send message to Slack.")
 
-    @patch('service.alert.client')
-    @patch('service.alert.logging')
+    @patch("service.alert.client")
+    @patch("service.alert.logging")
     def test_get_owner_id(self, mock_logging, mock_client):
         # Mock the response from Slack API
         mock_response = {
             "members": [
                 {"real_name": "User 1", "id": "U123", "is_owner": False},
                 {"real_name": "User 2", "id": "U456", "is_owner": True},
-                {"real_name": "User 3", "id": "U789", "is_owner": False}
+                {"real_name": "User 3", "id": "U789", "is_owner": False},
             ]
         }
         mock_client.users_list.return_value = mock_response
@@ -185,15 +193,17 @@ class TestAlertDate(unittest.TestCase):
 
 
 class TestEmailService(unittest.TestCase):
-    @patch('service.alert.smtplib.SMTP_SSL')
-    @patch('builtins.open', new_callable=mock_open, read_data=b'test file content')
-    @patch('service.alert.os.environ.get')
-    @patch('builtins.print')
-    def test_send_email_with_attachment_success(self, mock_print, mock_env_get, mock_file, mock_smtp_ssl):
+    @patch("service.alert.smtplib.SMTP_SSL")
+    @patch("builtins.open", new_callable=mock_open, read_data=b"test file content")
+    @patch("service.alert.os.environ.get")
+    @patch("builtins.print")
+    def test_send_email_with_attachment_success(
+        self, mock_print, mock_env_get, mock_file, mock_smtp_ssl
+    ):
         # Setup environment variables
         mock_env_get.side_effect = lambda key, default=None: {
             "SMTP_SERVER": "smtp.example.com",
-            "SMTP_PORT": 465
+            "SMTP_PORT": 465,
         }.get(key, default)
 
         # Setup SMTP mock
@@ -208,7 +218,7 @@ class TestEmailService(unittest.TestCase):
             "recipient@example.com",
             "Test Subject",
             "Test Body",
-            "path/to/attachment.txt"
+            "path/to/attachment.txt",
         )
 
         # Assertions
@@ -216,10 +226,12 @@ class TestEmailService(unittest.TestCase):
         mock_server.sendmail.assert_called_once()
         mock_print.assert_called_with("Email sent successfully!")
 
-    @patch('service.alert.smtplib.SMTP_SSL')
-    @patch('builtins.open')
-    @patch('builtins.print')
-    def test_send_email_attachment_not_found(self, mock_print, mock_open, mock_smtp_ssl):
+    @patch("service.alert.smtplib.SMTP_SSL")
+    @patch("builtins.open")
+    @patch("builtins.print")
+    def test_send_email_attachment_not_found(
+        self, mock_print, mock_open, mock_smtp_ssl
+    ):
         # Mock the file not found error
         mock_open.side_effect = FileNotFoundError()
 
@@ -231,7 +243,7 @@ class TestEmailService(unittest.TestCase):
             "recipient@example.com",
             "Test Subject",
             "Test Body",
-            "nonexistent/file.txt"
+            "nonexistent/file.txt",
         )
 
         # Assertions
@@ -239,5 +251,161 @@ class TestEmailService(unittest.TestCase):
         mock_smtp_ssl.assert_not_called()
 
 
-if __name__ == '__main__':
+class TestRegistrationTracking(unittest.TestCase):
+    def setUp(self):
+        # Create test directory and file
+        os.makedirs("storage", exist_ok=True)
+        self.test_file = "storage/registered_workshops.json"
+
+        # Clear or create the test file
+        with open(self.test_file, "w") as f:
+            json.dump({}, f)
+
+    def tearDown(self):
+        # Remove test file if it exists
+        if os.path.exists(self.test_file):
+            os.remove(self.test_file)
+
+    def test_get_registered_workshops_empty_file(self):
+        # Create empty file
+        with open(self.test_file, "w") as f:
+            f.write("")
+
+        # Get registrations from empty file
+        result = get_registered_workshops("home_depo")
+        self.assertEqual(result, {})
+
+    def test_get_registered_workshops_missing_scraper(self):
+        # Set up file with other scrapers
+        with open(self.test_file, "w") as f:
+            json.dump({"other_scraper": {"WS00001": {"title": "Other Workshop"}}}, f)
+
+        # Get registrations for non-existent scraper
+        result = get_registered_workshops("home_depo")
+        self.assertEqual(result, {})
+
+    def test_get_registered_workshops_existing_scraper(self):
+        # Create file with test scraper
+        test_data = {
+            "home_depo": {
+                "WS00029": {
+                    "workshop_id": "KWBE0001",
+                    "workshop_event_id": "WS00029",
+                    "title": "Build an Excavator",
+                    "event_date": "2025-11-08",
+                    "registration_date": "2025-10-13 10:30:00",
+                }
+            }
+        }
+        with open(self.test_file, "w") as f:
+            json.dump(test_data, f)
+
+        # Get registrations for test scraper
+        result = get_registered_workshops("home_depo")
+        self.assertIn("WS00029", result)
+        self.assertEqual(result["WS00029"]["title"], "Build an Excavator")
+
+    def test_is_workshop_registered_true(self):
+        # Create file with registered workshop
+        test_data = {
+            "home_depo": {
+                "WS00029": {"workshop_id": "KWBE0001", "title": "Build an Excavator"}
+            }
+        }
+        with open(self.test_file, "w") as f:
+            json.dump(test_data, f)
+
+        # Check if workshop is registered
+        result = is_workshop_registered("home_depo", "WS00029")
+        self.assertTrue(result)
+
+    def test_is_workshop_registered_false(self):
+        # Create file with different workshop
+        test_data = {
+            "home_depo": {
+                "WS00028": {"workshop_id": "KWBE0000", "title": "Different Workshop"}
+            }
+        }
+        with open(self.test_file, "w") as f:
+            json.dump(test_data, f)
+
+        # Check if workshop is registered
+        result = is_workshop_registered("home_depo", "WS00029")
+        self.assertFalse(result)
+
+    def test_save_registered_workshop_new_scraper(self):
+        # Create empty JSON file
+        with open(self.test_file, "w") as f:
+            json.dump({}, f)
+
+        # Save registration for new scraper
+        save_registered_workshop(
+            scraper_name="home_depo",
+            workshop_event_id="WS00029",
+            workshop_id="KWBE0001",
+            title="Build an Excavator",
+            event_date="2025-11-08",
+            registration_date=datetime.datetime(2025, 10, 13, 10, 30, 0),
+        )
+
+        # Verify file was updated
+        with open(self.test_file, "r") as f:
+            data = json.load(f)
+            self.assertIn("home_depo", data)
+            self.assertIn("WS00029", data["home_depo"])
+            self.assertEqual(
+                data["home_depo"]["WS00029"]["title"], "Build an Excavator"
+            )
+            self.assertEqual(data["home_depo"]["WS00029"]["workshop_id"], "KWBE0001")
+
+    def test_save_registered_workshop_existing_scraper(self):
+        # Create file with existing registration
+        test_data = {
+            "home_depo": {
+                "WS00028": {"workshop_id": "KWBE0000", "title": "Old Workshop"}
+            }
+        }
+        with open(self.test_file, "w") as f:
+            json.dump(test_data, f)
+
+        # Save new registration
+        save_registered_workshop(
+            scraper_name="home_depo",
+            workshop_event_id="WS00029",
+            workshop_id="KWBE0001",
+            title="Build an Excavator",
+            event_date="2025-11-08",
+        )
+
+        # Verify file was updated
+        with open(self.test_file, "r") as f:
+            data = json.load(f)
+            self.assertIn("WS00029", data["home_depo"])
+            self.assertIn("WS00028", data["home_depo"])  # Old registration still there
+            self.assertEqual(
+                data["home_depo"]["WS00029"]["title"], "Build an Excavator"
+            )
+
+    def test_save_registered_workshop_empty_file(self):
+        # Create empty file (not JSON)
+        with open(self.test_file, "w") as f:
+            f.write("")
+
+        # Save registration
+        save_registered_workshop(
+            scraper_name="home_depo",
+            workshop_event_id="WS00029",
+            workshop_id="KWBE0001",
+            title="Build an Excavator",
+            event_date="2025-11-08",
+        )
+
+        # Verify file was created with proper JSON
+        with open(self.test_file, "r") as f:
+            data = json.load(f)
+            self.assertIn("home_depo", data)
+            self.assertIn("WS00029", data["home_depo"])
+
+
+if __name__ == "__main__":
     unittest.main()

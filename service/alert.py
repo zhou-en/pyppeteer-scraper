@@ -76,7 +76,7 @@ def send_slack_message(message, screenshot_path=None):
                 channels=channel_id,
                 file=screenshot_path,
                 title="Here is a screenshot when the item is available",
-                initial_comment="Here is a screenshot when the item is available!"
+                initial_comment="Here is a screenshot when the item is available!",
             )
             logging.info(f"Uploaded screenshot: {response}")
             if response["ok"]:
@@ -130,8 +130,15 @@ def update_last_alert_date(scraper_name: str, new_date: datetime.date):
             json.dump(last_alert_data, f)
 
 
-def send_email_with_attachment(sender_email, sender_name, sender_password,
-                               recipients, subject, body, attachment_path):
+def send_email_with_attachment(
+    sender_email,
+    sender_name,
+    sender_password,
+    recipients,
+    subject,
+    body,
+    attachment_path,
+):
     """
     Sends an email with an attachment to multiple recipients.
 
@@ -197,10 +204,10 @@ def send_urgent_workshop_alert(workshop_details, registration_url=None):
             registration_url = "https://www.homedepot.ca/workshops?store=7265"
 
         # Create an urgent-looking message with visual indicators
-        title = workshop_details.get('title', 'Unknown Workshop')
-        date = workshop_details.get('date', 'Unknown Date')
-        event_code = workshop_details.get('event_code', 'Unknown Code')
-        seats_left = workshop_details.get('seats_left', 'Unknown')
+        title = workshop_details.get("title", "Unknown Workshop")
+        date = workshop_details.get("date", "Unknown Date")
+        event_code = workshop_details.get("event_code", "Unknown Code")
+        seats_left = workshop_details.get("seats_left", "Unknown")
 
         # Construct a message with high visibility and all the info needed to act quickly
         blocks = [
@@ -209,46 +216,32 @@ def send_urgent_workshop_alert(workshop_details, registration_url=None):
                 "text": {
                     "type": "plain_text",
                     "text": "🔴 URGENT: WORKSHOP REGISTRATION OPEN 🔴",
-                    "emoji": True
-                }
+                    "emoji": True,
+                },
             },
             {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"<@{user_id}> *Workshop available for registration!*"
-                }
+                    "text": f"<@{user_id}> *Workshop available for registration!*",
+                },
             },
-            {
-                "type": "divider"
-            },
+            {"type": "divider"},
             {
                 "type": "section",
                 "fields": [
-                    {
-                        "type": "mrkdwn",
-                        "text": f"*Workshop:*\n{title}"
-                    },
-                    {
-                        "type": "mrkdwn",
-                        "text": f"*Date:*\n{date}"
-                    },
-                    {
-                        "type": "mrkdwn",
-                        "text": f"*Event Code:*\n`{event_code}`"
-                    },
-                    {
-                        "type": "mrkdwn",
-                        "text": f"*Seats Left:*\n{seats_left}"
-                    }
-                ]
+                    {"type": "mrkdwn", "text": f"*Workshop:*\n{title}"},
+                    {"type": "mrkdwn", "text": f"*Date:*\n{date}"},
+                    {"type": "mrkdwn", "text": f"*Event Code:*\n`{event_code}`"},
+                    {"type": "mrkdwn", "text": f"*Seats Left:*\n{seats_left}"},
+                ],
             },
             {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": "*⚠️ Limited time to register! Act quickly! ⚠️*"
-                }
+                    "text": "*⚠️ Limited time to register! Act quickly! ⚠️*",
+                },
             },
             {
                 "type": "actions",
@@ -258,29 +251,29 @@ def send_urgent_workshop_alert(workshop_details, registration_url=None):
                         "text": {
                             "type": "plain_text",
                             "text": "🔗 Register Now",
-                            "emoji": True
+                            "emoji": True,
                         },
                         "style": "primary",
-                        "url": registration_url
+                        "url": registration_url,
                     }
-                ]
+                ],
             },
             {
                 "type": "context",
                 "elements": [
                     {
                         "type": "mrkdwn",
-                        "text": f"⏰ Alert sent at: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                        "text": f"⏰ Alert sent at: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
                     }
-                ]
-            }
+                ],
+            },
         ]
 
         # Send the message with the special formatting
         response = client.chat_postMessage(
             channel=channel_id,
             blocks=blocks,
-            text=f"URGENT: {title} workshop is open for registration!"
+            text=f"URGENT: {title} workshop is open for registration!",
             # Fallback text
         )
 
@@ -288,10 +281,7 @@ def send_urgent_workshop_alert(workshop_details, registration_url=None):
         if response["ok"]:
             try:
                 # Pin the message to the channel
-                client.pins_add(
-                    channel=channel_id,
-                    timestamp=response["ts"]
-                )
+                client.pins_add(channel=channel_id, timestamp=response["ts"])
                 logging.info("Urgent workshop alert pinned to channel")
             except SlackApiError as e:
                 logging.error(f"Error pinning urgent message: {e}")
@@ -300,7 +290,7 @@ def send_urgent_workshop_alert(workshop_details, registration_url=None):
             try:
                 client.chat_postMessage(
                     channel=channel_id,
-                    text=f"<!channel> A new workshop '{title}' is available for registration!"
+                    text=f"<!channel> A new workshop '{title}' is available for registration!",
                 )
             except SlackApiError as e:
                 logging.error(f"Error sending @channel notification: {e}")
@@ -330,43 +320,146 @@ def send_api_error_alert(service_name, error_message, details=None):
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"🚨 *API ERROR - {service_name}* 🚨\n{error_message}"
-                }
+                    "text": f"🚨 *API ERROR - {service_name}* 🚨\n{error_message}",
+                },
             }
         ]
 
         # Add error details if provided
         if details:
-            blocks.append({
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"*Details:*\n```{details}```"
-                }
-            })
-
-        blocks.append({
-            "type": "context",
-            "elements": [
+            blocks.append(
                 {
-                    "type": "mrkdwn",
-                    "text": f"⏰ Error occurred at: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": f"*Details:*\n```{details}```"},
                 }
-            ]
-        })
+            )
+
+        blocks.append(
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"⏰ Error occurred at: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                    }
+                ],
+            }
+        )
 
         # Send the message to Slack
         client.chat_postMessage(
             channel=channel_id,
             blocks=blocks,
-            text=f"API ERROR - {service_name}: {error_message}"  # Fallback text
+            text=f"API ERROR - {service_name}: {error_message}",  # Fallback text
         )
         logging.info(f"API error alert sent to Slack: {error_message}")
         return True
     except SlackApiError as e:
-        logging.error(
-            f"Error sending API error alert to Slack: {e.response['error']}")
+        logging.error(f"Error sending API error alert to Slack: {e.response['error']}")
         return False
     except Exception as e:
         logging.error(f"Unexpected error sending API error alert: {str(e)}")
         return False
+
+
+def get_registered_workshops(scraper_name: str):
+    """
+    Read the list of workshops that have been successfully registered for
+    from storage/registered_workshops.json
+
+    Args:
+        scraper_name: Name of the scraper (e.g., "home_depo")
+
+    Returns:
+        dict: Dictionary mapping workshop_event_ids to registration details
+              Returns empty dict if no registrations found
+    """
+    file_path = "storage/registered_workshops.json"
+
+    # Create storage directory if it doesn't exist
+    os.makedirs("storage", exist_ok=True)
+
+    # Create empty file if it doesn't exist
+    if not os.path.exists(file_path):
+        with open(file_path, "w") as f:
+            json.dump({}, f)
+        return {}
+
+    # Handle empty file
+    if os.path.getsize(file_path) == 0:
+        return {}
+
+    with open(file_path, "r") as f:
+        all_registrations = json.load(f)
+
+    return all_registrations.get(scraper_name, {})
+
+
+def is_workshop_registered(scraper_name: str, workshop_event_id: str):
+    """
+    Check if a specific workshop has already been registered for
+
+    Args:
+        scraper_name: Name of the scraper (e.g., "home_depo")
+        workshop_event_id: The workshop event ID (e.g., "WS00029")
+
+    Returns:
+        bool: True if workshop is already registered, False otherwise
+    """
+    registered_workshops = get_registered_workshops(scraper_name)
+    return workshop_event_id in registered_workshops
+
+
+def save_registered_workshop(
+    scraper_name: str,
+    workshop_event_id: str,
+    workshop_id: str,
+    title: str,
+    event_date: str,
+    registration_date: datetime.datetime = None,
+):
+    """
+    Save a successful workshop registration to storage
+
+    Args:
+        scraper_name: Name of the scraper (e.g., "home_depo")
+        workshop_event_id: The workshop event ID (e.g., "WS00029")
+        workshop_id: The specific workshop instance ID (e.g., "KWBE0001")
+        title: Workshop title
+        event_date: Date of the workshop event
+        registration_date: When the registration was made (defaults to now)
+    """
+    if registration_date is None:
+        registration_date = datetime.datetime.now()
+
+    registration_info = {
+        "workshop_id": workshop_id,
+        "workshop_event_id": workshop_event_id,
+        "title": title,
+        "event_date": event_date,
+        "registration_date": registration_date.strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+    file_path = "storage/registered_workshops.json"
+
+    # Create storage directory if it doesn't exist
+    os.makedirs("storage", exist_ok=True)
+
+    # Load existing data or start fresh
+    all_registrations = {}
+    if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+        with open(file_path, "r") as f:
+            all_registrations = json.load(f)
+
+    # Initialize scraper's registrations if not present
+    if scraper_name not in all_registrations:
+        all_registrations[scraper_name] = {}
+
+    # Save the registration
+    all_registrations[scraper_name][workshop_event_id] = registration_info
+
+    # Write updated data
+    with open(file_path, "w") as f:
+        json.dump(all_registrations, f, indent=2)
+
+    logging.info(f"Saved registration for {workshop_event_id} ({title})")

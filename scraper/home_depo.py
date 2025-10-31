@@ -493,6 +493,18 @@ async def run2(proxy: str = None, port: int = None) -> None:
                         # Update last alert date
                         update_last_alert_date("home_depo", current_date)
 
+                        # Check if already registered for this workshop event
+                        from service.alert import (
+                            is_workshop_registered,
+                            save_registered_workshop,
+                        )
+
+                        if is_workshop_registered("home_depo", event_code):
+                            log.info(
+                                f"Already registered for workshop event {event_code} ({title}), skipping..."
+                            )
+                            continue
+
                         # Check for specific workshops to register automatically
                         # Use the original start time string from API for the check
                         start_time_for_check = event.get("startTime", "")
@@ -523,6 +535,15 @@ async def run2(proxy: str = None, port: int = None) -> None:
                                 workshop_id, event_code
                             )
                             if success:
+                                # Save the registration to storage
+                                save_registered_workshop(
+                                    scraper_name="home_depo",
+                                    workshop_event_id=event_code,
+                                    workshop_id=workshop_id,
+                                    title=title,
+                                    event_date=str(formatted_date),
+                                )
+
                                 success_msg = (
                                     f"✅ Successfully registered:\n"
                                     f"• Event: *{title}*\n"
