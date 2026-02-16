@@ -333,12 +333,19 @@ class TestRun2E2E(unittest.TestCase):
         # Registration should be attempted for MWBT0005 (08:30, seats available)
         mock_register.assert_called_once_with("MWBT0005", "WS00037")
 
-        # Successful registration should be saved
+        # Successful registration should be saved with exact data
+        # that ends up in storage/registered_workshops.json
         mock_save_reg.assert_called_once()
         save_kwargs = mock_save_reg.call_args[1]
+        self.assertEqual(save_kwargs["scraper_name"], "home_depo")
         self.assertEqual(save_kwargs["workshop_event_id"], "WS00037")
         self.assertEqual(save_kwargs["workshop_id"], "MWBT0005")
         self.assertEqual(save_kwargs["title"], "Build a Leprechaun Trap")
+        # event_date should be the human-readable formatted date string
+        # produced by strftime("%A, %B %d, %Y at %I:%M %p")
+        self.assertIn("March", save_kwargs["event_date"])
+        self.assertIn("2026", save_kwargs["event_date"])
+        self.assertIn("08:30", save_kwargs["event_date"])
 
     @patch("service.alert.save_registered_workshop")
     @patch("service.alert.is_workshop_registered", return_value=True)  # Already registered!
@@ -377,7 +384,11 @@ class TestRun2E2E(unittest.TestCase):
         # Alert still sent (registration check happens AFTER alerting in the code)
         self.assertTrue(mock_slack_scraper.called or mock_slack_svc.called)
 
-        # But registration should NOT be attempted
+        # is_workshop_registered should have been called with the correct args
+        # for the 8:30 workshop (MWBT0005 → event_code WS00037)
+        mock_is_registered.assert_any_call("home_depo", "WS00037")
+
+        # But registration should NOT be attempted since it's already registered
         mock_register.assert_not_called()
         mock_save_reg.assert_not_called()
 

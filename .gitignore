@@ -132,4 +132,5 @@ dmypy.json
 .iml
 logs/
 /storage/last_alert.json
+/storage/registered_workshops.json
 /tests/storage/
