@@ -306,8 +306,9 @@ def should_register_workshop(workshop_id, start_time, attendee_limit, remaining_
         tuple: (should_register: bool, reason: str)
     """
     # Check if workshop ID starts with "KW" (Kids Workshop)
-    if not workshop_id.startswith("KW"):
-        return False, f"Workshop ID '{workshop_id}' does not start with 'KW'"
+    # Skip this check for now, as workshop ID can be MWBT0005
+    # if not workshop_id.startswith("KW"):
+    #     return False, f"Workshop ID '{workshop_id}' does not start with 'KW'"
 
     # Check if start time is 8:30
     if "08:30" not in start_time:
