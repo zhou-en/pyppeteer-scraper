@@ -1,0 +1,14 @@
+{
+    "customer":
+    {
+        "firstName": "En",
+        "lastName": "Zhou",
+        "email": "zhouen.nathan@gmail.com"
+    },
+    "workshopEventCode": "MWBT0005",
+    "store": "7265",
+    "participantCount": 2,
+    "guestParticipants":
+    [],
+    "lang": "en"
+}

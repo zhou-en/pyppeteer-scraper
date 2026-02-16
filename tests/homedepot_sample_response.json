@@ -1,0 +1,74 @@
+{
+    "dihFlag": false,
+    "diyFlag": true,
+    "kidFlag": true,
+    "workshopEventWsDTO":
+    [
+        {
+            "code": "MWBT0005",
+            "workshopId": "MWBT0005",
+            "attendeeLimit": 96,
+            "duration": "1.5",
+            "closeDate": "2026-03-08T23:59:59-0400",
+            "endTime": "2026-03-14T10:00:00-0400",
+            "eventDate": "2026-03-14T08:30:00-0400",
+            "startTime": "2026-03-14T08:30:00-0400",
+            "workshopStatus": "ACTIVE",
+            "workshopType": "KID",
+            "remainingSeats": 19,
+            "icsFile":
+            {
+                "code": "WS-EN-MWBT0005-1770319104893.ics",
+                "url": "WS-EN-MWBT0005-1770319104893.ics"
+            },
+            "eventType":
+            {
+                "workshopEventId": "WS00037",
+                "code": "WS00037",
+                "description": "If you are looking for a fun activity to do with the family, we’ve got a great workshop for kids that will teach them about building. Kids can learn how to build their very own Leprechaun Trap.",
+                "name": "Build a Leprechaun Trap",
+                "shortCode": "MWBT",
+                "thingsToKnow": "1. Please arrive on time\n2. Do not forget to bring a digital or printed copy of your confirmation email\n3. Please check in at the Service Desk when you come to the store\n4. Participants will not be required to perform any tasks. Workshop leader will demonstrate key skills to complete the given project.",
+                "imageUrl": "https://www.homedepot.ca/content/dam/assethub/images/workshops/2026-KW-Mar.jpg",
+                "photo":
+                {
+                    "code": "https://www.homedepot.ca/content/dam/assethub/images/workshops/2026-KW-Mar.jpg",
+                    "url": "https://www.homedepot.ca/content/dam/assethub/images/workshops/2026-KW-Mar.jpg"
+                }
+            }
+        },
+        {
+            "code": "MWBT0006",
+            "workshopId": "MWBT0006",
+            "attendeeLimit": 96,
+            "duration": "1.5",
+            "closeDate": "2026-03-08T23:59:59-0400",
+            "endTime": "2026-03-14T12:00:00-0400",
+            "eventDate": "2026-03-14T10:30:00-0400",
+            "startTime": "2026-03-14T10:30:00-0400",
+            "workshopStatus": "ACTIVE",
+            "workshopType": "KID",
+            "remainingSeats": 0,
+            "icsFile":
+            {
+                "code": "WS-EN-MWBT0006-1770319213810.ics",
+                "url": "WS-EN-MWBT0006-1770319213810.ics"
+            },
+            "eventType":
+            {
+                "workshopEventId": "WS00037",
+                "code": "WS00037",
+                "description": "If you are looking for a fun activity to do with the family, we’ve got a great workshop for kids that will teach them about building. Kids can learn how to build their very own Leprechaun Trap.",
+                "name": "Build a Leprechaun Trap",
+                "shortCode": "MWBT",
+                "thingsToKnow": "1. Please arrive on time\n2. Do not forget to bring a digital or printed copy of your confirmation email\n3. Please check in at the Service Desk when you come to the store\n4. Participants will not be required to perform any tasks. Workshop leader will demonstrate key skills to complete the given project.",
+                "imageUrl": "https://www.homedepot.ca/content/dam/assethub/images/workshops/2026-KW-Mar.jpg",
+                "photo":
+                {
+                    "code": "https://www.homedepot.ca/content/dam/assethub/images/workshops/2026-KW-Mar.jpg",
+                    "url": "https://www.homedepot.ca/content/dam/assethub/images/workshops/2026-KW-Mar.jpg"
+                }
+            }
+        }
+    ]
+}
