@@ -407,7 +407,13 @@ def is_workshop_registered(scraper_name: str, workshop_event_id: str):
         bool: True if workshop is already registered, False otherwise
     """
     registered_workshops = get_registered_workshops(scraper_name)
-    return workshop_event_id in registered_workshops
+    workshop_info = registered_workshops.get(workshop_event_id)
+    
+    if not workshop_info:
+        return False
+        
+    # specific check for boolean, defaulting to True for backward compatibility
+    return workshop_info.get("is_registered", True)
 
 
 def save_registered_workshop(
@@ -417,6 +423,7 @@ def save_registered_workshop(
     title: str,
     event_date: str,
     registration_date: datetime.datetime = None,
+    is_registered: bool = True,
 ):
     """
     Save a successful workshop registration to storage
@@ -428,6 +435,7 @@ def save_registered_workshop(
         title: Workshop title
         event_date: Date of the workshop event
         registration_date: When the registration was made (defaults to now)
+        is_registered: Boolean flag indicating if the workshop is fully registered
     """
     if registration_date is None:
         registration_date = datetime.datetime.now()
@@ -438,6 +446,7 @@ def save_registered_workshop(
         "title": title,
         "event_date": event_date,
         "registration_date": registration_date.strftime("%Y-%m-%d %H:%M:%S"),
+        "is_registered": is_registered,
     }
 
     file_path = "storage/registered_workshops.json"
@@ -447,19 +456,25 @@ def save_registered_workshop(
 
     # Load existing data or start fresh
     all_registrations = {}
-    if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
-        with open(file_path, "r") as f:
-            all_registrations = json.load(f)
+    if os.path.exists(file_path):
+        try:
+            if os.path.getsize(file_path) > 0:
+                with open(file_path, "r") as f:
+                    all_registrations = json.load(f)
+        except json.JSONDecodeError:
+            pass  # Start fresh if file is corrupted
 
     # Initialize scraper's registrations if not present
     if scraper_name not in all_registrations:
         all_registrations[scraper_name] = {}
 
     # Save the registration
+    # If it already exists, we are updating it (e.g. from discovered to registered)
     all_registrations[scraper_name][workshop_event_id] = registration_info
 
     # Write updated data
     with open(file_path, "w") as f:
         json.dump(all_registrations, f, indent=2)
 
-    logging.info(f"Saved registration for {workshop_event_id} ({title})")
+    status = "registered" if is_registered else "discovered"
+    logging.info(f"Saved {status} workshop {workshop_event_id} ({title})")

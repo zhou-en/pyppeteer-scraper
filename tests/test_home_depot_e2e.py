@@ -270,26 +270,24 @@ class TestRun2E2E(unittest.TestCase):
 
     # -- happy-path scenarios ---------------------------------------------
 
+    @patch("service.alert.get_registered_workshops", return_value={})
     @patch("service.alert.save_registered_workshop")
     @patch("service.alert.is_workshop_registered", return_value=False)
     @patch("scraper.home_depo.register_home_depot_workshop", return_value=(True, "OK"))
     @patch("service.alert.send_urgent_workshop_alert")
     @patch("scraper.home_depo.send_slack_message")
     @patch("service.alert.send_slack_message")
-    @patch("scraper.home_depo.update_last_alert_date")
-    @patch("scraper.home_depo.get_last_alert_date", return_value=None)
     @patch("playwright.async_api.async_playwright")
     def test_full_pipeline_registers_eligible_workshop(
         self,
         mock_pw,
-        mock_get_date,
-        mock_update_date,
         mock_slack_svc,
         mock_slack_scraper,
         mock_urgent,
         mock_register,
         mock_is_registered,
         mock_save_reg,
+        mock_get_regs,
         _wc,
     ):
         """
@@ -299,17 +297,7 @@ class TestRun2E2E(unittest.TestCase):
         MWBT0006 (10:30, 0 remaining) should be skipped (seats=0).
         """
         pw, ctx, resp = _build_playwright_mocks(self.sample_response)
-        mock_pw.return_value.__aenter__.return_value = (
-            pw.return_value.__aenter__.return_value
-        )
-        mock_pw.return_value.__aenter__.return_value.request.new_context.return_value = (
-            ctx
-        )
-
-        # Override the mock returned by the decorator
         mock_pw.return_value = pw.return_value
-
-        # Re-wire so async with works
         mock_pw.return_value.__aenter__.return_value = (
             pw.return_value.__aenter__.return_value
         )
@@ -327,52 +315,62 @@ class TestRun2E2E(unittest.TestCase):
         self.assertEqual(workshop_details["event_code"], "WS00037")
         self.assertEqual(workshop_details["seats_left"], 19)
 
-        # Last alert date should have been updated
-        mock_update_date.assert_called()
-
         # Registration should be attempted for MWBT0005 (08:30, seats available)
         mock_register.assert_called_once_with("MWBT0005", "WS00037")
 
-        # Successful registration should be saved with exact data
+        # save_registered_workshop should be called TWICE:
+        # 1. To mark as "Discovered" (is_registered=False)
+        # 2. To mark as "Registered" (is_registered=True) after success
+        self.assertEqual(mock_save_reg.call_count, 2)
+
+        # Verify first call (Discovery)
+        first_call_kwargs = mock_save_reg.call_args_list[0][1]
+        self.assertEqual(first_call_kwargs["workshop_event_id"], "WS00037")
+        self.assertFalse(first_call_kwargs["is_registered"])
+
+        # Verify second call (Registration Success) with exact data
         # that ends up in storage/registered_workshops.json
-        mock_save_reg.assert_called_once()
-        save_kwargs = mock_save_reg.call_args[1]
+        save_kwargs = mock_save_reg.call_args_list[1][1]
         self.assertEqual(save_kwargs["scraper_name"], "home_depo")
         self.assertEqual(save_kwargs["workshop_event_id"], "WS00037")
         self.assertEqual(save_kwargs["workshop_id"], "MWBT0005")
         self.assertEqual(save_kwargs["title"], "Build a Leprechaun Trap")
         # event_date should be the human-readable formatted date string
-        # produced by strftime("%A, %B %d, %Y at %I:%M %p")
         self.assertIn("March", save_kwargs["event_date"])
         self.assertIn("2026", save_kwargs["event_date"])
         self.assertIn("08:30", save_kwargs["event_date"])
+        # Implicitly is_registered=True (default) or explicitly passed?
+        # In code it's using default, which is True.
+        # We can check it's NOT False.
+        self.assertTrue(save_kwargs.get("is_registered", True))
 
+    @patch("service.alert.get_registered_workshops")
     @patch("service.alert.save_registered_workshop")
     @patch("service.alert.is_workshop_registered", return_value=True)  # Already registered!
     @patch("scraper.home_depo.register_home_depot_workshop")
     @patch("service.alert.send_urgent_workshop_alert")
     @patch("scraper.home_depo.send_slack_message")
     @patch("service.alert.send_slack_message")
-    @patch("scraper.home_depo.update_last_alert_date")
-    @patch("scraper.home_depo.get_last_alert_date", return_value=None)
     @patch("playwright.async_api.async_playwright")
     def test_skips_already_registered_workshop(
         self,
         mock_pw,
-        mock_get_date,
-        mock_update_date,
         mock_slack_svc,
         mock_slack_scraper,
         mock_urgent,
         mock_register,
         mock_is_registered,
         mock_save_reg,
+        mock_get_regs,
         _wc,
     ):
         """
-        When is_workshop_registered() returns True, registration should be
-        skipped entirely.
+        When is_workshop_registered() returns True, no alerts should be sent
+        and registration should be skipped entirely.
         """
+        # Simulate that the workshop is already known and registered
+        mock_get_regs.return_value = {"WS00037": {"is_registered": True}}
+        
         pw, ctx, resp = _build_playwright_mocks(self.sample_response)
         mock_pw.return_value = pw.return_value
         mock_pw.return_value.__aenter__.return_value = (
@@ -380,47 +378,48 @@ class TestRun2E2E(unittest.TestCase):
         )
 
         self._run(run2())
-
-        # Alert still sent (registration check happens AFTER alerting in the code)
-        self.assertTrue(mock_slack_scraper.called or mock_slack_svc.called)
 
         # is_workshop_registered should have been called with the correct args
         # for the 8:30 workshop (MWBT0005 → event_code WS00037)
         mock_is_registered.assert_any_call("home_depo", "WS00037")
 
-        # But registration should NOT be attempted since it's already registered
+        # No alerts should be sent for already-registered workshops
+        mock_slack_scraper.assert_not_called()
+        mock_urgent.assert_not_called()
+
+        # Registration should NOT be attempted
         mock_register.assert_not_called()
         mock_save_reg.assert_not_called()
 
+    @patch("service.alert.get_registered_workshops", return_value={})
     @patch("service.alert.save_registered_workshop")
     @patch("service.alert.is_workshop_registered", return_value=False)
-    @patch("scraper.home_depo.register_home_depot_workshop")
+    @patch("scraper.home_depo.register_home_depot_workshop", return_value=(True, "OK"))
     @patch("service.alert.send_urgent_workshop_alert")
     @patch("scraper.home_depo.send_slack_message")
     @patch("service.alert.send_slack_message")
-    @patch("scraper.home_depo.update_last_alert_date")
-    @patch("scraper.home_depo.get_last_alert_date")
     @patch("playwright.async_api.async_playwright")
-    def test_skips_when_alert_already_sent_today(
+    def test_both_sessions_get_alerts_when_both_have_spots(
         self,
         mock_pw,
-        mock_get_date,
-        mock_update_date,
         mock_slack_svc,
         mock_slack_scraper,
         mock_urgent,
         mock_register,
         mock_is_registered,
         mock_save_reg,
+        mock_get_regs,
         _wc,
     ):
         """
-        If an alert was already sent today, the workshop should be skipped
-        (no new alert, no registration attempt).
+        When both the 8:30 and 10:30 sessions have open spots,
+        alerts should be sent for BOTH sessions independently.
         """
-        mock_get_date.return_value = date.today()  # Already alerted today
+        response = _load_fixture("homedepot_sample_response.json")
+        # Give the 10:30 session some open spots too
+        response["workshopEventWsDTO"][1]["remainingSeats"] = 10
 
-        pw, ctx, resp = _build_playwright_mocks(self.sample_response)
+        pw, ctx, resp = _build_playwright_mocks(response)
         mock_pw.return_value = pw.return_value
         mock_pw.return_value.__aenter__.return_value = (
             pw.return_value.__aenter__.return_value
@@ -428,37 +427,44 @@ class TestRun2E2E(unittest.TestCase):
 
         self._run(run2())
 
-        # No slack messages should be sent
-        mock_slack_scraper.assert_not_called()
-        mock_urgent.assert_not_called()
-        mock_update_date.assert_not_called()
-        mock_register.assert_not_called()
+        # Both sessions should trigger urgent alerts
+        self.assertEqual(mock_urgent.call_count, 2)
 
+        # Verify alerts for both sessions
+        urgent_calls = mock_urgent.call_args_list
+        alerted_seats = [c[0][0]["seats_left"] for c in urgent_calls]
+        self.assertIn(19, alerted_seats)  # 8:30 session
+        self.assertIn(10, alerted_seats)  # 10:30 session
+
+        # save_registered_workshop call count:
+        # MWBT0005 (8:30): Discover (1) + Register (1) = 2
+        # MWBT0006 (10:30): Discover (1) + Register (0, wrong time) = 1
+        # Total = 3
+        self.assertEqual(mock_save_reg.call_count, 3)
+
+    @patch("service.alert.get_registered_workshops", return_value={})
     @patch("service.alert.save_registered_workshop")
     @patch("service.alert.is_workshop_registered", return_value=False)
     @patch("scraper.home_depo.register_home_depot_workshop", return_value=(False, "Error"))
     @patch("service.alert.send_urgent_workshop_alert")
     @patch("scraper.home_depo.send_slack_message")
     @patch("service.alert.send_slack_message")
-    @patch("scraper.home_depo.update_last_alert_date")
-    @patch("scraper.home_depo.get_last_alert_date", return_value=None)
     @patch("playwright.async_api.async_playwright")
     def test_failed_registration_not_saved(
         self,
         mock_pw,
-        mock_get_date,
-        mock_update_date,
         mock_slack_svc,
         mock_slack_scraper,
         mock_urgent,
         mock_register,
         mock_is_registered,
         mock_save_reg,
+        mock_get_regs,
         _wc,
     ):
         """
-        When registration fails, save_registered_workshop() should NOT be called.
-        An error Slack message should be sent instead.
+        When registration fails, save_registered_workshop() should only be called once
+        (for discovery), but NOT for the failed registration.
         """
         pw, ctx, resp = _build_playwright_mocks(self.sample_response)
         mock_pw.return_value = pw.return_value
@@ -471,8 +477,10 @@ class TestRun2E2E(unittest.TestCase):
         # Registration was attempted
         mock_register.assert_called_once()
 
-        # But NOT saved because it failed
-        mock_save_reg.assert_not_called()
+        # Called once for Discovery (is_registered=False)
+        self.assertEqual(mock_save_reg.call_count, 1)
+        args_kwargs = mock_save_reg.call_args[1]
+        self.assertFalse(args_kwargs["is_registered"])
 
         # An error slack message should have been sent (the code sends one)
         # The scraper sends error messages via send_slack_message

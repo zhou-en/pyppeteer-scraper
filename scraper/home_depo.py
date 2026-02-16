@@ -445,16 +445,42 @@ async def run2(proxy: str = None, port: int = None) -> None:
                             log.info(f"{title} is not active, skipping...")
                             continue
 
-                        # get last alert date
-                        alert_date = get_last_alert_date("home_depo")
-                        log.info(f"Previous alert was sent on {alert_date}")
-                        current_date = datetime.now().date()
+                        # Format date early for use in storage and alerts
+                        formatted_date = start_datetime
+                        if isinstance(start_datetime, datetime):
+                            formatted_date = start_datetime.strftime(
+                                "%A, %B %d, %Y at %I:%M %p"
+                            )
 
-                        if alert_date and alert_date >= current_date:
-                            log.info("No new alert is needed.")
+                        # Check if already registered or discovered
+                        from service.alert import (
+                            is_workshop_registered,
+                            save_registered_workshop,
+                            get_registered_workshops,
+                        )
+
+                        # If this is a newly discovered workshop (not in storage at all), save it as discovered
+                        known_workshops = get_registered_workshops("home_depo")
+                        if event_code not in known_workshops:
+                            log.info(f"Discovered new workshop: {title} ({event_code})")
+                            save_registered_workshop(
+                                scraper_name="home_depo",
+                                workshop_event_id=event_code,
+                                workshop_id=workshop_id,
+                                title=title,
+                                event_date=str(formatted_date),
+                                is_registered=False,
+                            )
+
+                        if is_workshop_registered("home_depo", event_code):
+                            log.info(
+                                f"Already registered for workshop event {event_code} ({title}), skipping..."
+                            )
                             continue
 
-                        log.info("Sending new alert...")
+                        # Workshop has open spots and is not registered
+                        # — send alert every run until registered
+                        log.info("Sending alert...")
 
                         # General workshop page link
                         workshop_page_link = (
@@ -473,13 +499,6 @@ async def run2(proxy: str = None, port: int = None) -> None:
                         # Also send an urgent, high-visibility alert for time-sensitive workshops
                         from service.alert import send_urgent_workshop_alert
 
-                        # Format date in a more readable way if possible
-                        formatted_date = start_datetime
-                        if isinstance(start_datetime, datetime):
-                            formatted_date = start_datetime.strftime(
-                                "%A, %B %d, %Y at %I:%M %p"
-                            )
-
                         # Create workshop details for the urgent alert
                         workshop_details = {
                             "title": title,
@@ -490,21 +509,6 @@ async def run2(proxy: str = None, port: int = None) -> None:
 
                         # Send the urgent alert with direct registration link
                         send_urgent_workshop_alert(workshop_details, registration_link)
-
-                        # Update last alert date
-                        update_last_alert_date("home_depo", current_date)
-
-                        # Check if already registered for this workshop event
-                        from service.alert import (
-                            is_workshop_registered,
-                            save_registered_workshop,
-                        )
-
-                        if is_workshop_registered("home_depo", event_code):
-                            log.info(
-                                f"Already registered for workshop event {event_code} ({title}), skipping..."
-                            )
-                            continue
 
                         # Check for specific workshops to register automatically
                         # Use the original start time string from API for the check
