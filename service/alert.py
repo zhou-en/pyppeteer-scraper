@@ -362,6 +362,101 @@ def send_api_error_alert(service_name, error_message, details=None):
         return False
 
 
+def send_ircc_status_card(
+    config_label: str,
+    estimated_time: str,
+    people_ahead: str,
+    total_waiting: str,
+    last_updated: str,
+    source_url: str,
+):
+    """
+    Send a clean IRCC processing-times status card to Slack.
+
+    Args:
+        config_label: Human-readable description of the application config
+            (e.g. "Provincial Nominees · Online via Express Entry").
+        estimated_time: Raw text under "Estimated time left".
+        people_ahead: Raw text under "People ahead of you" (e.g. "About 400 people ahead of you").
+        total_waiting: Raw text under "Total number of people waiting for a decision".
+        last_updated: Date string from the "Last updated:" badge.
+        source_url: URL to the IRCC processing-times page (used by the button).
+    """
+    try:
+        user_id = get_owner_id()
+
+        blocks = [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": f"🇨🇦 IRCC update — {config_label}",
+                    "emoji": True,
+                },
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"<@{user_id}> *Estimated time left*\n{estimated_time}",
+                },
+            },
+            {
+                "type": "section",
+                "fields": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*People ahead of you*\n{people_ahead}",
+                    },
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Total waiting*\n{total_waiting}",
+                    },
+                ],
+            },
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"Last updated: {last_updated}",
+                    }
+                ],
+            },
+            {
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {
+                            "type": "plain_text",
+                            "text": "Open IRCC page",
+                            "emoji": True,
+                        },
+                        "url": source_url,
+                    }
+                ],
+            },
+        ]
+
+        response = client.chat_postMessage(
+            channel=channel_id,
+            blocks=blocks,
+            text=f"IRCC update — {config_label}: {people_ahead}, {total_waiting} (updated {last_updated})",
+        )
+        if response["ok"]:
+            logging.info(f"IRCC status card sent for {config_label}")
+            return True
+        logging.error("Failed to send IRCC status card")
+        return False
+    except SlackApiError as e:
+        logging.error(f"Error sending IRCC status card: {e.response['error']}")
+        return False
+    except Exception as e:
+        logging.error(f"Unexpected error sending IRCC status card: {str(e)}")
+        return False
+
+
 def get_registered_workshops(scraper_name: str):
     """
     Read the list of workshops that have been successfully registered for
