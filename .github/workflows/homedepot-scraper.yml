@@ -13,12 +13,12 @@ jobs:
 
       - name: Install Python dependencies
         run: |
-          python3 -m venv .venv
-          .venv/bin/pip install -r requirements.txt
+          python3 -m venv ~/homedepot-venv
+          ~/homedepot-venv/bin/pip install -r requirements.txt
 
       - name: Run Home Depot scraper
         env:
           SLACK_API_TOKEN: ${{ secrets.SLACK_API_TOKEN }}
           CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
-        run: .venv/bin/python scraper/home_depo.py
+        run: ~/homedepot-venv/bin/python scraper/home_depo.py
