@@ -5,26 +5,26 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-22.04
+    runs-on: self-hosted
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
       - name: Install dependencies
-        run: pip install selenium python-dotenv
+        run: |
+          python3 -m venv ~/Projects/pyppeteer-scraper/venv
+          ~/Projects/pyppeteer-scraper/venv/bin/pip install selenium python-dotenv
 
       - name: Test Costco URL access
         env:
-          BROWSER_PATH: /usr/bin/google-chrome
+          BROWSER_PATH: /usr/bin/chromium-browser
+          CHROMEDRIVER_PATH: /usr/bin/chromedriver
         run: |
-          python - <<'EOF'
+          ~/Projects/pyppeteer-scraper/venv/bin/python - <<'EOF'
           import os
           from selenium import webdriver
           from selenium.webdriver.chrome.options import Options
+          from selenium.webdriver.chrome.service import Service
           from selenium.webdriver.common.by import By
           from selenium.webdriver.support.ui import WebDriverWait
           from selenium.webdriver.support import expected_conditions as EC
@@ -43,7 +43,8 @@ jobs:
           if browser_path:
               opts.binary_location = browser_path
 
-          driver = webdriver.Chrome(options=opts)  # Selenium Manager picks chromedriver
+          driver_path = os.environ.get("CHROMEDRIVER_PATH", "")
+          driver = webdriver.Chrome(service=Service(driver_path), options=opts) if driver_path else webdriver.Chrome(options=opts)
           url = "https://www.costco.ca/p/-/aiden-ivy-sereen-6-piece-fabric-sectional/4000207338?province=SK&langId=-24&preselect=colour:taupe"
           print(f"Navigating to: {url}")
           driver.get(url)

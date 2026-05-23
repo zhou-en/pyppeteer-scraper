@@ -8,25 +8,21 @@ on:
 
 jobs:
   scrape:
-    # If chrome fails on the cloud runner, change to: self-hosted
-    # and add: BROWSER_PATH: /usr/bin/chromium-browser
-    #          CHROMEDRIVER_PATH: /usr/bin/chromedriver
-    runs-on: ubuntu-22.04
+    runs-on: self-hosted
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
       - name: Install Python dependencies
-        run: pip install -r requirements.txt
+        run: |
+          python3 -m venv ~/Projects/pyppeteer-scraper/venv
+          ~/Projects/pyppeteer-scraper/venv/bin/pip install -r requirements.txt
 
       - name: Run Costco price monitor
         env:
           SLACK_API_TOKEN: ${{ secrets.SLACK_API_TOKEN }}
           CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
-          BROWSER_PATH: /usr/bin/google-chrome
-        run: python scraper/costco.py
+          BROWSER_PATH: /usr/bin/chromium-browser
+          CHROMEDRIVER_PATH: /usr/bin/chromedriver
+        run: ~/Projects/pyppeteer-scraper/venv/bin/python scraper/costco.py
