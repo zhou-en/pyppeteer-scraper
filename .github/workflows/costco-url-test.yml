@@ -57,18 +57,25 @@ jobs:
               fix_hairline=True,
           )
 
-          url = "https://www.costco.ca/aiden-ivy-sereen-6-piece-fabric-sectional.product.4000207338.html?langId=-24&province=SK&sh=true&nf=true"
-          print(f"Navigating to: {url}")
-          driver.get(url)
-          print(f"Page title: {driver.title}")
+          from time import sleep
 
+          # Warm up session on homepage first so Akamai sets cookies
+          print("Warming up session on homepage...")
+          driver.get("https://www.costco.ca")
+          sleep(3)
           try:
               WebDriverWait(driver, 5).until(
                   EC.element_to_be_clickable((By.ID, "onetrust-accept-btn-handler"))
               ).click()
-              print("Cookie consent accepted")
+              print("Cookie consent accepted on homepage")
+              sleep(1)
           except Exception:
-              print("No cookie consent prompt")
+              print("No cookie consent on homepage")
+
+          url = "https://www.costco.ca/aiden-ivy-sereen-6-piece-fabric-sectional.product.4000207338.html?langId=-24&province=SK&sh=true&nf=true"
+          print(f"Navigating to: {url}")
+          driver.get(url)
+          print(f"Page title: {driver.title}")
 
           try:
               price_el = WebDriverWait(driver, 10).until(

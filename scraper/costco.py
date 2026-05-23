@@ -174,6 +174,18 @@ def scrape_product(product):
 
 
 try:
+    # Warm up session on homepage so Akamai sets cookies before hitting product pages
+    log.info("Warming up session on costco.ca homepage...")
+    driver.get("https://www.costco.ca")
+    sleep(3)
+    try:
+        WebDriverWait(driver, 5).until(
+            EC.element_to_be_clickable((By.ID, "onetrust-accept-btn-handler"))
+        ).click()
+        sleep(1)
+    except Exception:
+        pass
+
     for product in PRODUCTS:
         scrape_product(product)
 finally:
