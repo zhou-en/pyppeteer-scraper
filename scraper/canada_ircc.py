@@ -228,6 +228,11 @@ async def fetch_ircc_data() -> dict:
     ptime = captured["ptime"]
     flpt  = captured["flpt"]
 
+    log.info(f"DEBUG ptime keys: {list(ptime.keys())}")
+    log.info(f"DEBUG flpt keys: {list(flpt.keys())}")
+    log.info(f"DEBUG ptime full: {ptime}")
+    log.info(f"DEBUG flpt full: {flpt}")
+
     estimated_time = ptime.get("pnp_ee_flpt", {}).get("pnp_ee_flpt", "—")
     last_updated   = ptime.get("default-update", {}).get("lastupdated", "—")
     total_waiting  = flpt.get("total-people", {}).get("pnp-ee", "—")
