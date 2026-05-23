@@ -157,8 +157,16 @@ def has_changed(current: dict, cached: dict | None) -> bool:
 
 async def fill_form_and_get_result(page) -> dict:
     """Fill the 5-step form and parse the result block. Returns the 4 raw fields."""
+    await page.set_extra_http_headers({
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        )
+    })
+
     log.info(f"Navigating to {TARGET_URL}")
-    await page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=60000)
+    await page.goto(TARGET_URL, wait_until="networkidle", timeout=60000)
 
     log.info("Filling form")
     await page.get_by_label("Select an application type.").select_option(
@@ -178,8 +186,9 @@ async def fill_form_and_get_result(page) -> dict:
 
     log.info("Submitting form")
     await page.get_by_role("button", name="Get processing time").click()
+    await page.wait_for_load_state("networkidle", timeout=60000)
 
-    await page.wait_for_selector("text=Estimated time left", timeout=15000)
+    await page.wait_for_selector("text=Estimated time left", timeout=60000)
 
     estimated_time = (
         await page.locator(":text('Estimated time left')")
@@ -237,6 +246,8 @@ async def run() -> None:
                 "args": [
                     "--no-sandbox",
                     "--disable-notifications",
+                    "--disable-blink-features=AutomationControlled",
+                    "--disable-dev-shm-usage",
                 ],
             }
             if BROWSER_PATH:
