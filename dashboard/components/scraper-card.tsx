@@ -11,12 +11,30 @@ const WORKFLOW_URLS: Record<string, string> = {
 
 function nextRunTime(cronSchedule: string): string {
   const parts = cronSchedule.split(" ")
-  const hour = parseInt(parts[1], 10)
-  const now = new Date()
-  const next = new Date()
-  next.setUTCHours(hour, 0, 0, 0)
-  if (next <= now) next.setUTCDate(next.getUTCDate() + 1)
-  return next.toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })
+  if (parts.length < 2) return "Scheduled"
+  const [minute, hour] = parts
+
+  // Hourly schedule (hour = "*"): next occurrence at :MM of the next/current hour
+  if (hour === "*") {
+    const min = parseInt(minute, 10) || 0
+    const now = new Date()
+    const next = new Date()
+    next.setMinutes(min, 0, 0)
+    if (next <= now) next.setHours(next.getHours() + 1, min, 0, 0)
+    return next.toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })
+  }
+
+  // Simple fixed hour (e.g. "0 15 * * *" or "0 15 * * 1-5")
+  const hourNum = parseInt(hour, 10)
+  if (!isNaN(hourNum)) {
+    const now = new Date()
+    const next = new Date()
+    next.setUTCHours(hourNum, 0, 0, 0)
+    if (next <= now) next.setUTCDate(next.getUTCDate() + 1)
+    return next.toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })
+  }
+
+  return "Scheduled"
 }
 
 function StatusDot({ status }: { status: string | null }) {
