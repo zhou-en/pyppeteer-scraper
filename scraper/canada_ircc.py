@@ -184,18 +184,32 @@ async def fill_form_and_get_result(page) -> dict:
     await page.get_by_label("Year (YYYY)").fill(CONFIG["year"])
     await page.get_by_label("Month").select_option(label=CONFIG["month"])
 
+    # Intercept JSON API responses triggered by the button click
+    import asyncio as _asyncio
+    captured_responses = []
+
+    async def _on_response(response):
+        ct = response.headers.get("content-type", "")
+        if "json" in ct and response.status == 200:
+            try:
+                data = await response.json()
+                captured_responses.append({"url": response.url, "data": data})
+                log.info(f"API JSON response from {response.url}: {str(data)[:800]}")
+            except Exception:
+                pass
+
+    page.on("response", _on_response)
+
     log.info("Submitting form")
     await page.get_by_role("button", name="Get processing time").click()
 
-    # Debug: capture page state 5s after click to see what CI actually gets
-    import asyncio as _asyncio
-    await _asyncio.sleep(5)
+    # Wait 30s then snapshot regardless of result
+    await _asyncio.sleep(30)
     log.info(f"Post-click URL: {page.url}")
-    log.info(f"Post-click title: {await page.title()}")
     body_text = await page.locator("body").inner_text()
-    log.info(f"Body snippet (first 1000 chars):\n{body_text[:1000]}")
+    log.info(f"Body (first 3000 chars):\n{body_text[:3000]}")
     await page.screenshot(path="/tmp/ircc_debug.png", full_page=True)
-    log.info("Screenshot saved to /tmp/ircc_debug.png")
+    log.info(f"Captured {len(captured_responses)} JSON API responses")
 
     await page.wait_for_selector("text=Estimated time left", timeout=60000)
 
