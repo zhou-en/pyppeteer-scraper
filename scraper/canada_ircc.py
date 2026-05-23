@@ -8,6 +8,7 @@ and posts a Slack status card *only when the result changes*.
 Run via cron (daily is plenty — IRCC updates monthly).
 """
 
+import asyncio
 import os
 import platform
 import sys
@@ -154,35 +155,87 @@ def has_changed(current: dict, cached: dict | None) -> bool:
     return cached != current
 
 
-PTIME_URL = "https://www.canada.ca/content/dam/ircc/documents/json/data-ptime-non-country-en.json"
-FLPT_URL  = "https://www.canada.ca/content/dam/ircc/documents/json/flpt-en.json"
-_UA = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-)
+PTIME_SUFFIX = "data-ptime-non-country-en.json"
+FLPT_SUFFIX  = "flpt-en.json"
 
 
-def fetch_ircc_data() -> dict:
-    """Fetch processing times directly from the two IRCC JSON endpoints."""
-    import urllib.request as _req
-    import json as _json
+async def fetch_ircc_data() -> dict:
+    """
+    Use a real browser session to trigger the IRCC page's network requests,
+    then parse the intercepted JSON directly — no DOM scraping needed.
+    The CDN blocks cold urllib/requests calls but allows browser sessions.
+    """
+    from playwright.async_api import async_playwright
 
-    def _get(url):
-        r = _req.Request(url, headers={"User-Agent": _UA, "Referer": TARGET_URL})
-        with _req.urlopen(r, timeout=30) as resp:
-            return _json.load(resp)
+    captured: dict[str, dict] = {}
 
-    ptime = _get(PTIME_URL)
-    flpt  = _get(FLPT_URL)
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-dev-shm-usage",
+                  "--disable-blink-features=AutomationControlled"],
+        )
+        page = await browser.new_page(viewport={"width": 1920, "height": 1080})
+
+        async def on_response(response):
+            url = response.url
+            if PTIME_SUFFIX in url or FLPT_SUFFIX in url:
+                try:
+                    data = await response.json()
+                    key = "ptime" if PTIME_SUFFIX in url else "flpt"
+                    captured[key] = data
+                    log.info(f"Captured {key} from {url}")
+                except Exception:
+                    pass
+
+        page.on("response", on_response)
+
+        log.info(f"Navigating to {TARGET_URL}")
+        await page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=60000)
+
+        # Fill form and click — this triggers the JSON fetches
+        log.info("Filling form and submitting")
+        await page.get_by_label("Select an application type.").select_option(
+            label=CONFIG["application_type"]
+        )
+        await page.get_by_label("Which economic class application?").select_option(
+            label=CONFIG["economic_class"]
+        )
+        await page.get_by_label("Online via Express Entry?").select_option(
+            label=CONFIG["online_express_entry"]
+        )
+        await page.get_by_label("Have you already applied?").select_option(
+            label=CONFIG["have_applied"]
+        )
+        await page.get_by_label("Year (YYYY)").fill(CONFIG["year"])
+        await page.get_by_label("Month").select_option(label=CONFIG["month"])
+        await page.get_by_role("button", name="Get processing time").click()
+
+        # Wait up to 30s for both JSON files to be intercepted
+        for _ in range(60):
+            if "ptime" in captured and "flpt" in captured:
+                break
+            await asyncio.sleep(0.5)
+
+        await browser.close()
+
+    if "ptime" not in captured or "flpt" not in captured:
+        raise RuntimeError(
+            f"JSON files not captured (got: {list(captured.keys())}). "
+            "canada.ca may have blocked the request."
+        )
+
+    ptime = captured["ptime"]
+    flpt  = captured["flpt"]
 
     estimated_time = ptime.get("pnp_ee_flpt", {}).get("pnp_ee_flpt", "—")
     last_updated   = ptime.get("default-update", {}).get("lastupdated", "—")
     total_waiting  = flpt.get("total-people", {}).get("pnp-ee", "—")
-    people_ahead   = total_waiting  # same figure; page shows both labels for it
+    people_ahead   = total_waiting
 
     log.info(
-        f"Fetched: estimated_time={estimated_time!r}, last_updated={last_updated!r}, "
-        f"total_waiting={total_waiting!r}"
+        f"Result: estimated_time={estimated_time!r}, "
+        f"last_updated={last_updated!r}, total_waiting={total_waiting!r}"
     )
     return {
         "estimated_time": estimated_time,
@@ -201,7 +254,7 @@ def run() -> None:
         return
 
     try:
-        result = fetch_ircc_data()
+        result = asyncio.run(fetch_ircc_data())
     except Exception as e:
         log.error(f"Scraper failed: {e}", exc_info=True)
         send_api_error_alert(
