@@ -429,20 +429,28 @@ async def run2(proxy: str = None, port: int = None) -> None:
                                 # Continue with the original string if parsing fails
                                 pass
 
+                        seats_taken = attendee_limit - seats_left
                         log.info(
-                            f"Found workshop: {title}, code: {event_code}, seats left: {seats_left}, status: {status}"
+                            f"--- Workshop: {title} | ID: {workshop_id} | Event Code: {event_code} ---"
+                        )
+                        log.info(
+                            f"    Date: {start_datetime} | Type: {event_type} | Status: {status}"
+                        )
+                        log.info(
+                            f"    Seats: {seats_left} remaining / {attendee_limit} total ({seats_taken} taken)"
                         )
 
                         if seats_left == 0:
-                            log.info(
-                                f"{title} starts on {start_datetime} is fully registered"
-                            )
+                            log.info(f"    SKIP: No seats available (fully booked)")
+                            log.info(f"    DECISION: No notification sent")
                             continue
                         if event_type != "KID":
-                            log.info(f"{title} is not a kid workshop, skipping...")
+                            log.info(f"    SKIP: Not a KID workshop (type={event_type})")
+                            log.info(f"    DECISION: No notification sent")
                             continue
                         if status != "ACTIVE":
-                            log.info(f"{title} is not active, skipping...")
+                            log.info(f"    SKIP: Status is not ACTIVE (status={status})")
+                            log.info(f"    DECISION: No notification sent")
                             continue
 
                         # Format date early for use in storage and alerts
@@ -462,7 +470,7 @@ async def run2(proxy: str = None, port: int = None) -> None:
                         # If this is a newly discovered workshop (not in storage at all), save it as discovered
                         known_workshops = get_registered_workshops("home_depo")
                         if event_code not in known_workshops:
-                            log.info(f"Discovered new workshop: {title} ({event_code})")
+                            log.info(f"    New workshop discovered, saving to DB: {title} ({event_code})")
                             save_registered_workshop(
                                 scraper_name="home_depo",
                                 workshop_event_id=event_code,
@@ -471,16 +479,20 @@ async def run2(proxy: str = None, port: int = None) -> None:
                                 event_date=str(formatted_date),
                                 is_registered=False,
                             )
+                        else:
+                            log.info(f"    Workshop already known in DB: {event_code}")
 
                         if is_workshop_registered("home_depo", event_code):
                             log.info(
-                                f"Already registered for workshop event {event_code} ({title}), skipping..."
+                                f"    SKIP: Already registered for {event_code}"
                             )
+                            log.info(f"    DECISION: No notification sent (already registered)")
                             continue
 
                         # Workshop has open spots and is not registered
                         # — send alert every run until registered
-                        log.info("Sending alert...")
+                        log.info(f"    Passes all filters: seats available, KID type, ACTIVE, not yet registered")
+                        log.info("    Sending alert...")
 
                         # General workshop page link
                         workshop_page_link = (
@@ -495,6 +507,7 @@ async def run2(proxy: str = None, port: int = None) -> None:
                         # Send standard alert for continuity
                         msg = f"*<{workshop_page_link}|{title}>* starts on *{start_datetime}* is open for registration: {workshop_page_link}"
                         send_slack_message(msg)
+                        log.info(f"    DECISION: Slack notification sent")
 
                         # Also send an urgent, high-visibility alert for time-sensitive workshops
                         from service.alert import send_urgent_workshop_alert
@@ -519,6 +532,8 @@ async def run2(proxy: str = None, port: int = None) -> None:
                             attendee_limit,
                             seats_left,
                         )
+                        log.info(f"    Auto-register check: {reason}")
+                        log.info(f"    Auto-register decision: {'YES' if should_register else 'NO'}")
 
                         if should_register:
                             registration_msg = (
