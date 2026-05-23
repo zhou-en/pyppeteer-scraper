@@ -13,36 +13,48 @@ jobs:
       - name: Install dependencies
         run: |
           python3 -m venv ~/Projects/pyppeteer-scraper/venv
-          ~/Projects/pyppeteer-scraper/venv/bin/pip install selenium undetected-chromedriver python-dotenv
-
-      - name: Copy chromedriver to writable location
-        run: cp /usr/bin/chromedriver /tmp/chromedriver && chmod +x /tmp/chromedriver
+          ~/Projects/pyppeteer-scraper/venv/bin/pip install selenium selenium-stealth python-dotenv
 
       - name: Test Costco URL access
         env:
           BROWSER_PATH: /usr/bin/chromium-browser
-          CHROMEDRIVER_PATH: /tmp/chromedriver
+          CHROMEDRIVER_PATH: /usr/bin/chromedriver
         run: |
           ~/Projects/pyppeteer-scraper/venv/bin/python - <<'EOF'
           import os
-          import undetected_chromedriver as uc
+          from selenium import webdriver
+          from selenium.webdriver.chrome.options import Options
+          from selenium.webdriver.chrome.service import Service
           from selenium.webdriver.common.by import By
           from selenium.webdriver.support.ui import WebDriverWait
           from selenium.webdriver.support import expected_conditions as EC
+          from selenium_stealth import stealth
 
-          opts = uc.ChromeOptions()
+          opts = Options()
+          opts.add_argument("--headless=new")
           opts.add_argument("--no-sandbox")
           opts.add_argument("--disable-dev-shm-usage")
+          opts.add_argument("--disable-gpu")
           opts.add_argument("--window-size=1920,1200")
 
-          browser_path = os.environ.get("BROWSER_PATH") or None
-          driver_path = os.environ.get("CHROMEDRIVER_PATH") or None
+          browser_path = os.environ.get("BROWSER_PATH", "")
+          if browser_path:
+              opts.binary_location = browser_path
 
-          driver = uc.Chrome(
+          driver_path = os.environ.get("CHROMEDRIVER_PATH", "")
+          driver = webdriver.Chrome(
+              service=Service(driver_path) if driver_path else None,
               options=opts,
-              headless=True,
-              browser_executable_path=browser_path,
-              driver_executable_path=driver_path,
+          )
+
+          stealth(
+              driver,
+              languages=["en-CA", "en"],
+              vendor="Google Inc.",
+              platform="Win32",
+              webgl_vendor="Intel Inc.",
+              renderer="Intel Iris OpenGL Engine",
+              fix_hairline=True,
           )
 
           url = "https://www.costco.ca/p/-/aiden-ivy-sereen-6-piece-fabric-sectional/4000207338?province=SK&langId=-24&preselect=colour:taupe"

@@ -6,11 +6,14 @@ from datetime import datetime
 from time import sleep
 
 import psycopg2
-import undetected_chromedriver as uc
 from dotenv import load_dotenv
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium_stealth import stealth
 
 current = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.dirname(current)
@@ -28,20 +31,38 @@ PRODUCTS_PATH = os.path.join(parent, "config", "costco_products.json")
 with open(PRODUCTS_PATH) as f:
     PRODUCTS = json.load(f)
 
-options = uc.ChromeOptions()
+options = Options()
+options.add_argument("--headless=new")
 options.add_argument("--window-size=1920,1200")
 options.add_argument("--no-sandbox")
 options.add_argument("--disable-dev-shm-usage")
 options.add_argument("--disable-gpu")
 
 BROWSER_BINARY = os.environ.get("BROWSER_PATH", "")
-DRIVER_PATH = os.environ.get("CHROMEDRIVER_PATH", None)
+if platform.system() == "Darwin":
+    pass
+elif BROWSER_BINARY:
+    options.binary_location = BROWSER_BINARY
+else:
+    options.binary_location = "/usr/bin/chromium-browser"
 
-driver = uc.Chrome(
+DRIVER_PATH = os.environ.get("CHROMEDRIVER_PATH", "")
+if not DRIVER_PATH and platform.system() != "Darwin":
+    DRIVER_PATH = "/usr/bin/chromedriver"
+
+driver = webdriver.Chrome(
+    service=Service(DRIVER_PATH) if DRIVER_PATH else None,
     options=options,
-    headless=True,
-    browser_executable_path=BROWSER_BINARY or None,
-    driver_executable_path=DRIVER_PATH,
+)
+
+stealth(
+    driver,
+    languages=["en-CA", "en"],
+    vendor="Google Inc.",
+    platform="Win32",
+    webgl_vendor="Intel Inc.",
+    renderer="Intel Iris OpenGL Engine",
+    fix_hairline=True,
 )
 
 

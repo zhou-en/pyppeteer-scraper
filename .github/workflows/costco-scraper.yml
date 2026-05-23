@@ -18,14 +18,11 @@ jobs:
           python3 -m venv ~/Projects/pyppeteer-scraper/venv
           ~/Projects/pyppeteer-scraper/venv/bin/pip install -r requirements.txt
 
-      - name: Copy chromedriver to writable location
-        run: cp /usr/bin/chromedriver /tmp/chromedriver && chmod +x /tmp/chromedriver
-
       - name: Run Costco price monitor
         env:
           SLACK_API_TOKEN: ${{ secrets.SLACK_API_TOKEN }}
           CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
           BROWSER_PATH: /usr/bin/chromium-browser
-          CHROMEDRIVER_PATH: /tmp/chromedriver
+          CHROMEDRIVER_PATH: /usr/bin/chromedriver
         run: ~/Projects/pyppeteer-scraper/venv/bin/python scraper/costco.py
