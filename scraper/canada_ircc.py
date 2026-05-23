@@ -166,7 +166,7 @@ async def fill_form_and_get_result(page) -> dict:
     })
 
     log.info(f"Navigating to {TARGET_URL}")
-    await page.goto(TARGET_URL, wait_until="networkidle", timeout=60000)
+    await page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=60000)
 
     log.info("Filling form")
     await page.get_by_label("Select an application type.").select_option(
@@ -186,7 +186,6 @@ async def fill_form_and_get_result(page) -> dict:
 
     log.info("Submitting form")
     await page.get_by_role("button", name="Get processing time").click()
-    await page.wait_for_load_state("networkidle", timeout=60000)
 
     await page.wait_for_selector("text=Estimated time left", timeout=60000)
 
