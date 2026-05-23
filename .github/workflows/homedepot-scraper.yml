@@ -6,28 +6,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  check-runner:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check if Pi runner is online
-        run: |
-          STATUS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/runners" \
-            | python3 -c "
-          import sys, json
-          runners = json.load(sys.stdin).get('runners', [])
-          pi = next((r for r in runners if r['name'] == 'pi-runner'), None)
-          print(pi['status'] if pi else 'not-found')
-          ")
-          echo "Pi runner status: $STATUS"
-          if [ "$STATUS" != "online" ]; then
-            echo "::error::Pi runner is '$STATUS' — Home Depot scraper cannot run"
-            exit 1
-          fi
-
   scrape:
-    needs: check-runner
     runs-on: self-hosted
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
