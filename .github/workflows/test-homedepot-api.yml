@@ -7,59 +7,66 @@ jobs:
   test:
     runs-on: ubuntu-22.04
     steps:
-      - name: curl (with UA header)
-        continue-on-error: true
+      - name: Install Playwright
         run: |
-          echo "=== curl (with UA) ==="
-          curl -v -o /dev/null -w "status: %{http_code}\ntime: %{time_total}s\n" \
-            -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/119.0" \
-            "https://www.homedepot.ca/api/workshopsvc/v1/workshops/all?storeId=7265&lang=en" 2>&1 || echo "curl exit code: $?"
+          pip install playwright
+          python -m playwright install chromium --with-deps
 
-      - name: curl (no UA header)
-        continue-on-error: true
+      - name: Full browser — intercept workshopsvc API response
         run: |
-          echo "=== curl (no UA) ==="
-          curl -v -o /dev/null -w "status: %{http_code}\ntime: %{time_total}s\n" \
-            "https://www.homedepot.ca/api/workshopsvc/v1/workshops/all?storeId=7265&lang=en" 2>&1 || echo "curl exit code: $?"
-
-      - name: python requests
-        continue-on-error: true
-        run: |
-          python3 - <<'EOF'
-          import requests
-          url = "https://www.homedepot.ca/api/workshopsvc/v1/workshops/all?storeId=7265&lang=en"
-          headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/119.0"}
-          try:
-              r = requests.get(url, headers=headers, timeout=30)
-              print(f"status: {r.status_code}")
-              print(f"content-type: {r.headers.get('content-type', 'n/a')}")
-              print(f"body preview: {r.text[:500]}")
-          except Exception as e:
-              print(f"exception: {type(e).__name__}: {e}")
-          EOF
-
-      - name: playwright http client
-        continue-on-error: true
-        run: |
-          pip install playwright -q
-          python -m playwright install chromium --with-deps -q
           python3 - <<'EOF'
           import asyncio
           from playwright.async_api import async_playwright
 
+          TARGET_URL = "https://www.homedepot.ca/workshops?store=7265"
+          API_SUFFIX = "workshopsvc"
+
           async def test():
-              url = "https://www.homedepot.ca/api/workshopsvc/v1/workshops/all?storeId=7265&lang=en"
+              captured = {}
+
               async with async_playwright() as p:
-                  ctx = await p.request.new_context()
-                  try:
-                      r = await ctx.get(url, timeout=30000)
-                      print(f"status: {r.status}")
-                      text = await r.text()
-                      print(f"body preview: {text[:500]}")
-                  except Exception as e:
-                      print(f"exception: {type(e).__name__}: {e}")
-                  finally:
-                      await ctx.dispose()
+                  browser = await p.chromium.launch(
+                      headless=True,
+                      args=["--no-sandbox", "--disable-dev-shm-usage",
+                            "--disable-blink-features=AutomationControlled"],
+                  )
+                  page = await browser.new_page(viewport={"width": 1920, "height": 1080})
+
+                  async def on_response(response):
+                      if API_SUFFIX in response.url:
+                          print(f"Intercepted: {response.url}")
+                          print(f"Status: {response.status}")
+                          try:
+                              data = await response.json()
+                              captured["data"] = data
+                              print(f"Keys: {list(data.keys())}")
+                              events = data.get("workshopEventWsDTO", [])
+                              print(f"Workshop events found: {len(events)}")
+                              for e in events[:3]:
+                                  print(f"  - {e.get('eventType', {}).get('name', '?')} | seats left: {e.get('remainingSeats')} | status: {e.get('workshopStatus')}")
+                          except Exception as ex:
+                              text = await response.text()
+                              print(f"JSON parse error: {ex}")
+                              print(f"Body preview: {text[:300]}")
+
+                  page.on("response", on_response)
+
+                  print(f"Navigating to {TARGET_URL}")
+                  await page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=60000)
+
+                  # Wait up to 20s for the API call to be intercepted
+                  for _ in range(40):
+                      if "data" in captured:
+                          break
+                      await asyncio.sleep(0.5)
+
+                  await browser.close()
+
+              if "data" not in captured:
+                  print("ERROR: API response was never intercepted")
+                  exit(1)
+              else:
+                  print("SUCCESS: API data captured via browser interception")
 
           asyncio.run(test())
           EOF
