@@ -6,10 +6,8 @@ from datetime import datetime
 from time import sleep
 
 import psycopg2
+import undetected_chromedriver as uc
 from dotenv import load_dotenv
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -30,31 +28,21 @@ PRODUCTS_PATH = os.path.join(parent, "config", "costco_products.json")
 with open(PRODUCTS_PATH) as f:
     PRODUCTS = json.load(f)
 
-options = Options()
-options.add_argument("--headless")
+options = uc.ChromeOptions()
 options.add_argument("--window-size=1920,1200")
 options.add_argument("--no-sandbox")
 options.add_argument("--disable-dev-shm-usage")
 options.add_argument("--disable-gpu")
-options.add_argument(
-    "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/89.0.4389.82 Safari/537.36"
-)
 
 BROWSER_BINARY = os.environ.get("BROWSER_PATH", "")
-if platform.system() == "Darwin":
-    pass  # auto-detect on macOS
-elif BROWSER_BINARY:
-    options.binary_location = BROWSER_BINARY
-else:
-    options.binary_location = "/usr/bin/chromium-browser"
+DRIVER_PATH = os.environ.get("CHROMEDRIVER_PATH", None)
 
-DRIVER_PATH_ENV = os.environ.get("CHROMEDRIVER_PATH", "")
-if DRIVER_PATH_ENV:
-    driver = webdriver.Chrome(service=Service(DRIVER_PATH_ENV), options=options)
-else:
-    driver = webdriver.Chrome(options=options)  # Selenium Manager auto-downloads
+driver = uc.Chrome(
+    options=options,
+    headless=True,
+    browser_executable_path=BROWSER_BINARY or None,
+    driver_executable_path=DRIVER_PATH,
+)
 
 
 def _db_conn():

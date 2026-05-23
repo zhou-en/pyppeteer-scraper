@@ -13,7 +13,7 @@ jobs:
       - name: Install dependencies
         run: |
           python3 -m venv ~/Projects/pyppeteer-scraper/venv
-          ~/Projects/pyppeteer-scraper/venv/bin/pip install selenium python-dotenv
+          ~/Projects/pyppeteer-scraper/venv/bin/pip install selenium undetected-chromedriver python-dotenv
 
       - name: Test Costco URL access
         env:
@@ -22,39 +22,35 @@ jobs:
         run: |
           ~/Projects/pyppeteer-scraper/venv/bin/python - <<'EOF'
           import os
-          from selenium import webdriver
-          from selenium.webdriver.chrome.options import Options
-          from selenium.webdriver.chrome.service import Service
+          import undetected_chromedriver as uc
           from selenium.webdriver.common.by import By
           from selenium.webdriver.support.ui import WebDriverWait
           from selenium.webdriver.support import expected_conditions as EC
 
-          opts = Options()
-          opts.add_argument("--headless")
+          opts = uc.ChromeOptions()
           opts.add_argument("--no-sandbox")
           opts.add_argument("--disable-dev-shm-usage")
           opts.add_argument("--window-size=1920,1200")
-          opts.add_argument(
-              "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-              "AppleWebKit/537.36 (KHTML, like Gecko) "
-              "Chrome/89.0.4389.82 Safari/537.36"
-          )
-          browser_path = os.environ.get("BROWSER_PATH", "")
-          if browser_path:
-              opts.binary_location = browser_path
 
-          driver_path = os.environ.get("CHROMEDRIVER_PATH", "")
-          driver = webdriver.Chrome(service=Service(driver_path), options=opts) if driver_path else webdriver.Chrome(options=opts)
+          browser_path = os.environ.get("BROWSER_PATH") or None
+          driver_path = os.environ.get("CHROMEDRIVER_PATH") or None
+
+          driver = uc.Chrome(
+              options=opts,
+              headless=True,
+              browser_executable_path=browser_path,
+              driver_executable_path=driver_path,
+          )
+
           url = "https://www.costco.ca/p/-/aiden-ivy-sereen-6-piece-fabric-sectional/4000207338?province=SK&langId=-24&preselect=colour:taupe"
           print(f"Navigating to: {url}")
           driver.get(url)
           print(f"Page title: {driver.title}")
 
           try:
-              cookie_btn = WebDriverWait(driver, 5).until(
+              WebDriverWait(driver, 5).until(
                   EC.element_to_be_clickable((By.ID, "onetrust-accept-btn-handler"))
-              )
-              cookie_btn.click()
+              ).click()
               print("Cookie consent accepted")
           except Exception:
               print("No cookie consent prompt")
