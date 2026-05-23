@@ -15,10 +15,13 @@ jobs:
           python3 -m venv ~/Projects/pyppeteer-scraper/venv
           ~/Projects/pyppeteer-scraper/venv/bin/pip install selenium undetected-chromedriver python-dotenv
 
+      - name: Copy chromedriver to writable location
+        run: cp /usr/bin/chromedriver /tmp/chromedriver && chmod +x /tmp/chromedriver
+
       - name: Test Costco URL access
         env:
           BROWSER_PATH: /usr/bin/chromium-browser
-          CHROMEDRIVER_PATH: /usr/bin/chromedriver
+          CHROMEDRIVER_PATH: /tmp/chromedriver
         run: |
           ~/Projects/pyppeteer-scraper/venv/bin/python - <<'EOF'
           import os
