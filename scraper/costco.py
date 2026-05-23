@@ -1,9 +1,11 @@
+import json
 import os
 import platform
 import sys
 from datetime import datetime
 from time import sleep
 
+import psycopg2
 from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -19,136 +21,151 @@ import my_logger
 
 load_dotenv()
 
-from service.alert import (
-    send_email_with_attachment, send_slack_message,
-    get_last_alert_date,
-    update_last_alert_date,
-)
+from service.alert import send_slack_message
 
-# Set up the email parameters
-sender_email = os.environ.get("EMAIL_USER", "")
-sender_password = os.environ.get("EMAIL_PASSWORD", "")
-recipients = os.environ.get("RECEIVER_EMAILS", "")
+SCRAPER_NAME = "costco"
+log = my_logger.CustomLogger(SCRAPER_NAME, verbose=True, log_dir="logs")
 
+PRODUCTS_PATH = os.path.join(parent, "config", "costco_products.json")
+with open(PRODUCTS_PATH) as f:
+    PRODUCTS = json.load(f)
 
-# Set up options for headless Chrome
 options = Options()
-options.headless = True  # Enable headless mode for invisible operation
-options.add_argument("--window-size=1920,1200")  # Define the window size of the browser
-options.add_argument("--headless")  # Run in headless mode
-options.add_argument("--no-sandbox")  # Bypass OS security model
-options.add_argument("--disable-dev-shm-usage")  # Overcome limited resource problems
+options.add_argument("--headless")
+options.add_argument("--window-size=1920,1200")
+options.add_argument("--no-sandbox")
+options.add_argument("--disable-dev-shm-usage")
+options.add_argument("--disable-gpu")
 options.add_argument(
     "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/89.0.4389.82 Safari/537.36"
 )
-options.add_argument("--disable-gpu")  # Disable GPU acceleration
-options.binary_location = "/usr/bin/chromium-browser"
 
-link = "https://www.costco.ca/aiden-%2526-ivy-6-piece-fabric-sectional%2c-grey.product.4000207338.html?langId=-24&province=SK&sh=true&nf=true"
-# Set the path to the installed Chromium driver
-DRIVER_PATH = '/usr/bin/chromedriver'
-# Check if the operating system is macOS
-if platform.system() == 'Darwin':  # macOS
-    DRIVER_PATH = '/opt/homebrew/bin/chromedriver'
-    options.binary_location = ""
+BROWSER_BINARY = os.environ.get("BROWSER_PATH", "")
+if platform.system() == "Darwin":
+    pass  # auto-detect on macOS
+elif BROWSER_BINARY:
+    options.binary_location = BROWSER_BINARY
+else:
+    options.binary_location = "/usr/bin/chromium-browser"
 
-# Set up the Service
-service = Service(DRIVER_PATH)
-# Initialize Chrome with the specified options
-driver = webdriver.Chrome(service=service, options=options)
+DRIVER_PATH_ENV = os.environ.get("CHROMEDRIVER_PATH", "")
+if DRIVER_PATH_ENV:
+    driver = webdriver.Chrome(service=Service(DRIVER_PATH_ENV), options=options)
+else:
+    driver = webdriver.Chrome(options=options)  # Selenium Manager auto-downloads
 
 
-SCRAPER_NAME = "costco"
-log = my_logger.CustomLogger(SCRAPER_NAME, verbose=True, log_dir="logs")
+def _db_conn():
+    return psycopg2.connect(os.environ["POSTGRES_URL"])
 
-# Navigate to the Nintendo website
-try:
-    driver.get(link)
-    # sleep(5)
-    try:
-        cookie_button = WebDriverWait(driver, 3).until(
-            EC.element_to_be_clickable((By.ID, "onetrust-accept-btn-handler"))
+
+def _ensure_state_table(cur):
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS costco_state (
+            product_id       TEXT PRIMARY KEY,
+            product_name     TEXT,
+            last_known_price NUMERIC,
+            updated_at       TIMESTAMPTZ DEFAULT NOW()
         )
-        cookie_button.click()
+    """)
+
+
+def _get_last_price(cur, product_id):
+    cur.execute(
+        "SELECT last_known_price FROM costco_state WHERE product_id = %s",
+        (product_id,),
+    )
+    row = cur.fetchone()
+    return float(row[0]) if row else None
+
+
+def _save_price(cur, product_id, product_name, price):
+    cur.execute(
+        """
+        INSERT INTO costco_state (product_id, product_name, last_known_price, updated_at)
+        VALUES (%s, %s, %s, NOW())
+        ON CONFLICT (product_id) DO UPDATE
+            SET last_known_price = EXCLUDED.last_known_price,
+                updated_at       = NOW()
+        """,
+        (product_id, product_name, price),
+    )
+
+
+def scrape_product(product):
+    url = product["url"]
+    name = product["name"]
+    product_id = product["id"]
+
+    log.info(f"Scraping: {name}")
+    driver.get(url)
+
+    try:
+        WebDriverWait(driver, 5).until(
+            EC.element_to_be_clickable((By.ID, "onetrust-accept-btn-handler"))
+        ).click()
+    except Exception:
+        pass  # cookie prompt absent
+
+    try:
+        WebDriverWait(driver, 3).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "#out-of-stock-zip-code + a"))
+        ).click()
+
+        zip_field = WebDriverWait(driver, 3).until(
+            EC.presence_of_element_located((By.ID, "eddZipCodeField"))
+        )
+        zip_field.clear()
+        zip_field.send_keys("S7T 0J6")
+
+        WebDriverWait(driver, 3).until(
+            EC.element_to_be_clickable((By.ID, "edd-check-button"))
+        ).click()
+        sleep(2)
     except Exception as e:
-        log.error("No cookie consent prompt found or an error occurred:", e)
-    # sleep(1)
+        log.warning(f"Postal code flow skipped: {e}")
 
-    # Wait for the "Change Delivery Postal Code" link to be present and click it
-    change_zip_code_link = WebDriverWait(driver, 1).until(
-        EC.element_to_be_clickable((By.CSS_SELECTOR, "#out-of-stock-zip-code + a"))
-    )
-    change_zip_code_link.click()
+    try:
+        price_el = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "#pull-right-price .value"))
+        )
+        price_text = price_el.text.replace(",", "").strip()
+        current_price = float(price_text)
+        log.info(f"Current price: ${current_price:.2f}")
+    except Exception as e:
+        log.error(f"Could not extract price: {e}")
+        return
 
-    # Wait for the zip code input field to be present and fill it
-    zip_code_field = WebDriverWait(driver, 2).until(
-        EC.presence_of_element_located((By.ID, "eddZipCodeField"))
-    )
-    zip_code_field.clear()  # Clear any pre-filled text
-    zip_code_field.send_keys("S7T 0J6")  # Fill in the zip code
+    conn = _db_conn()
+    cur = conn.cursor()
+    try:
+        _ensure_state_table(cur)
+        last_price = _get_last_price(cur, product_id)
 
-    # Wait for the submit button to be clickable and click it
-    submit_button = WebDriverWait(driver, 3).until(
-        EC.element_to_be_clickable((By.ID, "edd-check-button"))
-    )
-    submit_button.click()
-    sleep(2)
-
-    # Wait for the "add-to-cart" input button to be present
-    add_to_cart_button = WebDriverWait(driver, 3).until(
-        EC.presence_of_element_located((By.ID, "add-to-cart-btn"))
-    )
-    sleep(1)
-
-    # Retrieve the value of the button
-    button_value = add_to_cart_button.get_attribute("value")
-    # Now get the price from the specified element
-    price_element = WebDriverWait(driver, 1).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, "#pull-right-price .value"))
-    )
-    price = price_element.text
-    log.info(f"The price of the item is: ${price}")
-
-    # Check if the value indicates out of stock
-    if button_value.lower() == "out of stock":
-        log.info("The item is out of stock.")
-    else:
-        log.info(f"This what we found: {button_value.lower()}")
-        # get last alert date
-        alert_date = get_last_alert_date("costco")
-        if alert_date:
-            log.info(f"Previous alert was sent on {alert_date}")
-        current_date = datetime.now().date()
-        if not alert_date or alert_date < current_date:
-            today = datetime.now().strftime("%Y-%m-%d")
-            screenshot_name = f"storage/screenshot_{today}.png"
-            if not os.path.isfile(screenshot_name):
-                log.info("Taking a screenshot ...")
-                driver.save_screenshot(screenshot_name)
-                log.info(f"Screenshot saved as {screenshot_name}")
-
-            log.info("Sending new alert...")
+        if last_price is None:
+            log.info(f"First run — recording price ${current_price:.2f}")
+        elif current_price < last_price:
+            drop = last_price - current_price
+            log.info(f"Price dropped! ${last_price:.2f} → ${current_price:.2f} (save ${drop:.2f})")
             msg = (
-                f"*<{link}|Aiden & Ivy 6-piece Fabric Sectional, Grey>* "
-                f"is available: {link}"
+                f"*<{url}|{name}>* price dropped!\n"
+                f"*${last_price:.2f}* → *${current_price:.2f}* (save *${drop:.2f}*)"
             )
             send_slack_message(msg)
-            update_last_alert_date("costco", current_date)
-            send_email_with_attachment(
-                sender_email,
-                "Costco Scraper",
-                sender_password,
-                recipients,
-                "Costco Scraper Alert",
-                "testing",
-                screenshot_name,
-            )
+        else:
+            log.info(f"No drop. Current ${current_price:.2f}, last ${last_price:.2f}")
 
+        _save_price(cur, product_id, name, current_price)
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+
+
+try:
+    for product in PRODUCTS:
+        scrape_product(product)
 finally:
-    # Output the page source to the console
-    # print(driver.page_source)
-
-    # Close the browser session cleanly to free up system resources
     driver.quit()
