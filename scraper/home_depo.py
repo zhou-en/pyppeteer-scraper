@@ -3,6 +3,7 @@ import json
 import os
 import platform
 import sys
+import time
 
 import requests
 from dotenv import load_dotenv
@@ -628,6 +629,52 @@ async def run2(proxy: str = None, port: int = None) -> None:
             return
 
 
+SCRAPER_NAME = "home_depo"
+
+
+def _get_db_conn():
+    import psycopg2
+    url = os.environ.get("POSTGRES_URL", "")
+    if "sslmode" not in url:
+        url += "?sslmode=require"
+    return psycopg2.connect(url)
+
+
+def write_run_log(started_at: float, status: str, message: str) -> None:
+    duration_ms = int((time.time() - started_at) * 1000)
+    try:
+        conn = _get_db_conn()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO scraper_runs (scraper_id, started_at, duration_ms, status, message)
+            VALUES (%s, to_timestamp(%s), %s, %s, %s)
+            """,
+            (SCRAPER_NAME, started_at, duration_ms, status, message[:500]),
+        )
+        cur.execute(
+            """
+            UPDATE scrapers SET
+                last_run_at = to_timestamp(%s),
+                last_run_duration_ms = %s,
+                last_run_status = %s,
+                last_run_message = %s
+            WHERE id = %s
+            """,
+            (started_at, duration_ms, status, message[:500], SCRAPER_NAME),
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        log.warning(f"Could not write run log: {e}")
+
+
 if __name__ == "__main__":
+    started_at = time.time()
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(run2())
+    try:
+        loop.run_until_complete(run2())
+        write_run_log(started_at, "success", "completed")
+    except Exception as e:
+        write_run_log(started_at, "fail", str(e))
+        raise

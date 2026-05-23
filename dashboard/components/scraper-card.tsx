@@ -6,6 +6,7 @@ import { IrccData } from "@/components/ircc-data"
 
 const WORKFLOW_URLS: Record<string, string> = {
   canada_ircc: "https://github.com/zhou-en/pyppeteer-scraper/actions/workflows/ircc-scraper.yml",
+  home_depo: "https://github.com/zhou-en/pyppeteer-scraper/actions/workflows/homedepot-scraper.yml",
 }
 
 function nextRunTime(cronSchedule: string): string {

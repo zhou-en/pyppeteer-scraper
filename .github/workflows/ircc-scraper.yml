@@ -2,13 +2,13 @@ name: IRCC Scraper
 
 on:
   schedule:
-    - cron: "0 9 * * *"    # daily at 9am UTC
-    - cron: "0 0 * * 0"    # weekly cleanup on Sundays at midnight UTC
+    - cron: "0 15 * * 1-5"  # weekdays at 9am UTC-6 (15:00 UTC)
+    - cron: "0 0 * * 0"     # weekly cleanup on Sundays at midnight UTC
   workflow_dispatch:         # enables "Run Now" from the dashboard
 
 jobs:
   scrape:
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 9 * * *'
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 15 * * 1-5'
     runs-on: ubuntu-22.04
     permissions:
       contents: read
