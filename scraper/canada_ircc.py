@@ -235,19 +235,22 @@ async def fetch_ircc_data() -> dict:
     ptime = captured["ptime"]
     flpt  = captured["flpt"]
 
-    log.info(f"DEBUG ptime keys: {list(ptime.keys())}")
-    log.info(f"DEBUG flpt keys: {list(flpt.keys())}")
-    log.info(f"DEBUG ptime full: {ptime}")
-    log.info(f"DEBUG flpt full: {flpt}")
+    # people-ahead is keyed by "{category}-{YYYY}/{MM:02d}"
+    month_num = {
+        "January": 1, "February": 2, "March": 3, "April": 4,
+        "May": 5, "June": 6, "July": 7, "August": 8,
+        "September": 9, "October": 10, "November": 11, "December": 12,
+    }[CONFIG["month"]]
+    people_ahead_key = f"pnp-ee-{CONFIG['year']}/{month_num:02d}"
 
     estimated_time = ptime.get("pnp_ee_flpt", {}).get("pnp_ee_flpt", "—")
-    last_updated   = ptime.get("default-update", {}).get("lastupdated", "—")
+    last_updated   = flpt.get("default-update", {}).get("flpt_lastupdated", "—")
     total_waiting  = flpt.get("total-people", {}).get("pnp-ee", "—")
-    people_ahead   = total_waiting
+    people_ahead   = flpt.get("people-ahead", {}).get(people_ahead_key, "—")
 
     log.info(
-        f"Result: estimated_time={estimated_time!r}, "
-        f"last_updated={last_updated!r}, total_waiting={total_waiting!r}"
+        f"Result: estimated_time={estimated_time!r}, last_updated={last_updated!r}, "
+        f"people_ahead={people_ahead!r}, total_waiting={total_waiting!r}"
     )
     return {
         "estimated_time": estimated_time,
