@@ -194,21 +194,28 @@ async def fetch_ircc_data() -> dict:
         await page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=60000)
 
         # Fill form and click — this triggers the JSON fetches
-        log.info("Filling form and submitting")
+        log.info(f"Filling form with config: {CONFIG}")
         await page.get_by_label("Select an application type.").select_option(
             label=CONFIG["application_type"]
         )
+        log.info(f"  application_type = {CONFIG['application_type']!r}")
         await page.get_by_label("Which economic class application?").select_option(
             label=CONFIG["economic_class"]
         )
+        log.info(f"  economic_class = {CONFIG['economic_class']!r}")
         await page.get_by_label("Online via Express Entry?").select_option(
             label=CONFIG["online_express_entry"]
         )
+        log.info(f"  online_express_entry = {CONFIG['online_express_entry']!r}")
         await page.get_by_label("Have you already applied?").select_option(
             label=CONFIG["have_applied"]
         )
+        log.info(f"  have_applied = {CONFIG['have_applied']!r}")
         await page.get_by_label("Year (YYYY)").fill(CONFIG["year"])
+        log.info(f"  year = {CONFIG['year']!r}")
         await page.get_by_label("Month").select_option(label=CONFIG["month"])
+        log.info(f"  month = {CONFIG['month']!r}")
+        log.info("  Clicking 'Get processing time'")
         await page.get_by_role("button", name="Get processing time").click()
 
         # Wait up to 30s for both JSON files to be intercepted
