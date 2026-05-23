@@ -8,7 +8,6 @@ and posts a Slack status card *only when the result changes*.
 Run via cron (daily is plenty — IRCC updates monthly).
 """
 
-import asyncio
 import os
 import platform
 import sys
@@ -155,95 +154,36 @@ def has_changed(current: dict, cached: dict | None) -> bool:
     return cached != current
 
 
-async def fill_form_and_get_result(page) -> dict:
-    """Fill the 5-step form and parse the result block. Returns the 4 raw fields."""
-    await page.set_extra_http_headers({
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/124.0.0.0 Safari/537.36"
-        )
-    })
+PTIME_URL = "https://www.canada.ca/content/dam/ircc/documents/json/data-ptime-non-country-en.json"
+FLPT_URL  = "https://www.canada.ca/content/dam/ircc/documents/json/flpt-en.json"
+_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+)
 
-    log.info(f"Navigating to {TARGET_URL}")
-    await page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=60000)
 
-    log.info("Filling form")
-    await page.get_by_label("Select an application type.").select_option(
-        label=CONFIG["application_type"]
+def fetch_ircc_data() -> dict:
+    """Fetch processing times directly from the two IRCC JSON endpoints."""
+    import urllib.request as _req
+    import json as _json
+
+    def _get(url):
+        r = _req.Request(url, headers={"User-Agent": _UA, "Referer": TARGET_URL})
+        with _req.urlopen(r, timeout=30) as resp:
+            return _json.load(resp)
+
+    ptime = _get(PTIME_URL)
+    flpt  = _get(FLPT_URL)
+
+    estimated_time = ptime.get("pnp_ee_flpt", {}).get("pnp_ee_flpt", "—")
+    last_updated   = ptime.get("default-update", {}).get("lastupdated", "—")
+    total_waiting  = flpt.get("total-people", {}).get("pnp-ee", "—")
+    people_ahead   = total_waiting  # same figure; page shows both labels for it
+
+    log.info(
+        f"Fetched: estimated_time={estimated_time!r}, last_updated={last_updated!r}, "
+        f"total_waiting={total_waiting!r}"
     )
-    await page.get_by_label("Which economic class application?").select_option(
-        label=CONFIG["economic_class"]
-    )
-    await page.get_by_label("Online via Express Entry?").select_option(
-        label=CONFIG["online_express_entry"]
-    )
-    await page.get_by_label("Have you already applied?").select_option(
-        label=CONFIG["have_applied"]
-    )
-    await page.get_by_label("Year (YYYY)").fill(CONFIG["year"])
-    await page.get_by_label("Month").select_option(label=CONFIG["month"])
-
-    # Intercept JSON API responses triggered by the button click
-    import asyncio as _asyncio
-    captured_responses = []
-
-    async def _on_response(response):
-        ct = response.headers.get("content-type", "")
-        if "json" in ct and response.status == 200:
-            try:
-                data = await response.json()
-                captured_responses.append({"url": response.url, "data": data})
-                log.info(f"API JSON response from {response.url}: {str(data)[:800]}")
-            except Exception:
-                pass
-
-    page.on("response", _on_response)
-
-    log.info("Submitting form")
-    await page.get_by_role("button", name="Get processing time").click()
-
-    # Wait 30s then snapshot regardless of result
-    await _asyncio.sleep(30)
-    log.info(f"Post-click URL: {page.url}")
-    body_text = await page.locator("body").inner_text()
-    log.info(f"Body (first 3000 chars):\n{body_text[:3000]}")
-    await page.screenshot(path="/tmp/ircc_debug.png", full_page=True)
-    log.info(f"Captured {len(captured_responses)} JSON API responses")
-
-    await page.wait_for_selector("text=Estimated time left", timeout=60000)
-
-    estimated_time = (
-        await page.locator(":text('Estimated time left')")
-        .locator("..")
-        .locator("h3, h4, p")
-        .first.inner_text()
-    )
-    estimated_time = estimated_time.strip()
-
-    last_updated_raw = await page.locator(
-        ":text-matches('Last updated:', 'i')"
-    ).first.inner_text()
-    last_updated = last_updated_raw.replace("Last updated:", "").strip()
-
-    people_ahead = (
-        await page.locator(":text('People ahead of you')")
-        .locator("..")
-        .locator("p, div")
-        .first.inner_text()
-    )
-    people_ahead = people_ahead.strip()
-
-    total_waiting = (
-        await page.locator(
-            ":text('Total number of people waiting for a decision')"
-        )
-        .locator("..")
-        .locator("p, div")
-        .first.inner_text()
-    )
-    total_waiting = total_waiting.strip()
-
     return {
         "estimated_time": estimated_time,
         "last_updated": last_updated,
@@ -252,9 +192,7 @@ async def fill_form_and_get_result(page) -> dict:
     }
 
 
-async def run() -> None:
-    from playwright.async_api import async_playwright
-
+def run() -> None:
     started_at = time.time()
 
     if not is_active():
@@ -263,27 +201,7 @@ async def run() -> None:
         return
 
     try:
-        async with async_playwright() as playwright:
-            launch_kwargs = {
-                "headless": True,
-                "args": [
-                    "--no-sandbox",
-                    "--disable-notifications",
-                    "--disable-blink-features=AutomationControlled",
-                    "--disable-dev-shm-usage",
-                ],
-            }
-            if BROWSER_PATH:
-                launch_kwargs["executable_path"] = BROWSER_PATH
-
-            browser = await playwright.chromium.launch(**launch_kwargs)
-            try:
-                page = await browser.new_page(
-                    viewport={"width": 1920, "height": 1080}
-                )
-                result = await fill_form_and_get_result(page)
-            finally:
-                await browser.close()
+        result = fetch_ircc_data()
     except Exception as e:
         log.error(f"Scraper failed: {e}", exc_info=True)
         send_api_error_alert(
@@ -316,4 +234,4 @@ async def run() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(run())
+    run()

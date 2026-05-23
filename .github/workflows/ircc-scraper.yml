@@ -22,23 +22,12 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
-      - name: Install Playwright browsers
-        run: playwright install chromium --with-deps
-
       - name: Run IRCC scraper
         env:
           SLACK_API_TOKEN: ${{ secrets.SLACK_API_TOKEN }}
           CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
         run: python scraper/canada_ircc.py
-
-      - name: Upload debug screenshot
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ircc-debug-screenshot
-          path: /tmp/ircc_debug.png
-          if-no-files-found: ignore
 
   cleanup:
     if: github.event.schedule == '0 0 * * 0'
