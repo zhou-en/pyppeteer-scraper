@@ -263,7 +263,7 @@ export function ScraperCard({
             View Logs
           </a>
 
-          {runState.phase !== "idle" && workflowUrl && (
+          {workflowUrl && (
             <a
               href={workflowUrl}
               target="_blank"
