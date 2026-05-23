@@ -32,6 +32,14 @@ jobs:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
         run: python scraper/canada_ircc.py
 
+      - name: Upload debug screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ircc-debug-screenshot
+          path: /tmp/ircc_debug.png
+          if-no-files-found: ignore
+
   cleanup:
     if: github.event.schedule == '0 0 * * 0'
     runs-on: ubuntu-latest

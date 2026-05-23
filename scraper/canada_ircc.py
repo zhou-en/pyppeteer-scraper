@@ -187,6 +187,16 @@ async def fill_form_and_get_result(page) -> dict:
     log.info("Submitting form")
     await page.get_by_role("button", name="Get processing time").click()
 
+    # Debug: capture page state 5s after click to see what CI actually gets
+    import asyncio as _asyncio
+    await _asyncio.sleep(5)
+    log.info(f"Post-click URL: {page.url}")
+    log.info(f"Post-click title: {await page.title()}")
+    body_text = await page.locator("body").inner_text()
+    log.info(f"Body snippet (first 1000 chars):\n{body_text[:1000]}")
+    await page.screenshot(path="/tmp/ircc_debug.png", full_page=True)
+    log.info("Screenshot saved to /tmp/ircc_debug.png")
+
     await page.wait_for_selector("text=Estimated time left", timeout=60000)
 
     estimated_time = (
