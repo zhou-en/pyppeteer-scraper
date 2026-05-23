@@ -13,87 +13,48 @@ jobs:
       - name: Install dependencies
         run: |
           python3 -m venv ~/Projects/pyppeteer-scraper/venv
-          ~/Projects/pyppeteer-scraper/venv/bin/pip install selenium selenium-stealth python-dotenv
+          ~/Projects/pyppeteer-scraper/venv/bin/pip install curl-cffi beautifulsoup4
 
       - name: Test Costco URL access
-        env:
-          BROWSER_PATH: /usr/bin/chromium-browser
-          CHROMEDRIVER_PATH: /usr/bin/chromedriver
         run: |
           ~/Projects/pyppeteer-scraper/venv/bin/python - <<'EOF'
-          import os
-          from selenium import webdriver
-          from selenium.webdriver.chrome.options import Options
-          from selenium.webdriver.chrome.service import Service
-          from selenium.webdriver.common.by import By
-          from selenium.webdriver.support.ui import WebDriverWait
-          from selenium.webdriver.support import expected_conditions as EC
-          from selenium_stealth import stealth
-
-          opts = Options()
-          opts.add_argument("--headless=new")
-          opts.add_argument("--no-sandbox")
-          opts.add_argument("--disable-dev-shm-usage")
-          opts.add_argument("--disable-gpu")
-          opts.add_argument("--window-size=1920,1200")
-
-          browser_path = os.environ.get("BROWSER_PATH", "")
-          if browser_path:
-              opts.binary_location = browser_path
-
-          driver_path = os.environ.get("CHROMEDRIVER_PATH", "")
-          driver = webdriver.Chrome(
-              service=Service(driver_path) if driver_path else None,
-              options=opts,
-          )
-
-          stealth(
-              driver,
-              languages=["en-CA", "en"],
-              vendor="Google Inc.",
-              platform="Win32",
-              webgl_vendor="Intel Inc.",
-              renderer="Intel Iris OpenGL Engine",
-              fix_hairline=True,
-          )
-
+          from curl_cffi import requests as curl_requests
+          from bs4 import BeautifulSoup
           from time import sleep
 
-          # Warm up session on homepage first so Akamai sets cookies
-          print("Warming up session on homepage...")
-          driver.get("https://www.costco.ca")
-          sleep(3)
-          try:
-              WebDriverWait(driver, 5).until(
-                  EC.element_to_be_clickable((By.ID, "onetrust-accept-btn-handler"))
-              ).click()
-              print("Cookie consent accepted on homepage")
-              sleep(1)
-          except Exception:
-              print("No cookie consent on homepage")
+          HEADERS = {
+              "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+              "Accept-Language": "en-CA,en;q=0.9",
+              "Accept-Encoding": "gzip, deflate, br",
+              "Cache-Control": "no-cache",
+              "Sec-Fetch-Dest": "document",
+              "Sec-Fetch-Mode": "navigate",
+              "Sec-Fetch-Site": "none",
+              "Sec-Fetch-User": "?1",
+              "Upgrade-Insecure-Requests": "1",
+          }
+
+          session = curl_requests.Session()
+
+          print("Warming up on homepage...")
+          r = session.get("https://www.costco.ca", impersonate="chrome110", headers=HEADERS)
+          print(f"Homepage status: {r.status_code}")
+          sleep(2)
 
           url = "https://www.costco.ca/aiden-ivy-sereen-6-piece-fabric-sectional.product.4000207338.html?langId=-24&province=SK&sh=true&nf=true"
-          print(f"Navigating to: {url}")
-          driver.get(url)
-          print(f"Page title: {driver.title}")
+          print(f"Fetching product: {url}")
+          product_headers = {**HEADERS, "Sec-Fetch-Site": "same-origin", "Referer": "https://www.costco.ca/"}
+          r = session.get(url, impersonate="chrome110", headers=product_headers)
+          print(f"Product status: {r.status_code}")
 
-          try:
-              price_el = WebDriverWait(driver, 10).until(
-                  EC.presence_of_element_located((By.CSS_SELECTOR, "#pull-right-price .value"))
-              )
-              print(f"SUCCESS — price found: ${price_el.text}")
-          except Exception as e:
-              print(f"WARN — price selector not found: {e}")
-              print("Page source snippet:")
-              print(driver.page_source[:3000])
-
-          driver.save_screenshot("screenshot.png")
-          print("Screenshot saved")
-          driver.quit()
+          if r.status_code != 200:
+              print(f"BLOCKED:\n{r.text[:500]}")
+          else:
+              soup = BeautifulSoup(r.text, "html.parser")
+              price_el = soup.select_one("#pull-right-price .value")
+              if price_el:
+                  print(f"SUCCESS — price found: ${price_el.get_text(strip=True)}")
+              else:
+                  print("WARN — price selector not found")
+                  print(r.text[:3000])
           EOF
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: costco-screenshot
-          path: screenshot.png

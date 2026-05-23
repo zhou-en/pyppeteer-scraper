@@ -1,19 +1,12 @@
 import json
 import os
-import platform
 import sys
-from datetime import datetime
 from time import sleep
 
 import psycopg2
+from bs4 import BeautifulSoup
+from curl_cffi import requests as curl_requests
 from dotenv import load_dotenv
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium_stealth import stealth
 
 current = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.dirname(current)
@@ -31,39 +24,26 @@ PRODUCTS_PATH = os.path.join(parent, "config", "costco_products.json")
 with open(PRODUCTS_PATH) as f:
     PRODUCTS = json.load(f)
 
-options = Options()
-options.add_argument("--headless=new")
-options.add_argument("--window-size=1920,1200")
-options.add_argument("--no-sandbox")
-options.add_argument("--disable-dev-shm-usage")
-options.add_argument("--disable-gpu")
+HEADERS = {
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+    "Accept-Language": "en-CA,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Cache-Control": "no-cache",
+    "Pragma": "no-cache",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1",
+}
 
-BROWSER_BINARY = os.environ.get("BROWSER_PATH", "")
-if platform.system() == "Darwin":
-    pass
-elif BROWSER_BINARY:
-    options.binary_location = BROWSER_BINARY
-else:
-    options.binary_location = "/usr/bin/chromium-browser"
+session = curl_requests.Session()
 
-DRIVER_PATH = os.environ.get("CHROMEDRIVER_PATH", "")
-if not DRIVER_PATH and platform.system() != "Darwin":
-    DRIVER_PATH = "/usr/bin/chromedriver"
-
-driver = webdriver.Chrome(
-    service=Service(DRIVER_PATH) if DRIVER_PATH else None,
-    options=options,
-)
-
-stealth(
-    driver,
-    languages=["en-CA", "en"],
-    vendor="Google Inc.",
-    platform="Win32",
-    webgl_vendor="Intel Inc.",
-    renderer="Intel Iris OpenGL Engine",
-    fix_hairline=True,
-)
+# Warm up session on homepage so Akamai sets its cookies
+log.info("Warming up session on costco.ca...")
+resp = session.get("https://www.costco.ca", impersonate="chrome110", headers=HEADERS)
+log.info(f"Homepage status: {resp.status_code}")
+sleep(2)
 
 
 def _db_conn():
@@ -109,43 +89,25 @@ def scrape_product(product):
     product_id = product["id"]
 
     log.info(f"Scraping: {name}")
-    driver.get(url)
+    product_headers = {**HEADERS, "Sec-Fetch-Site": "same-origin", "Referer": "https://www.costco.ca/"}
+    resp = session.get(url, impersonate="chrome110", headers=product_headers)
+    log.info(f"Product page status: {resp.status_code}")
 
-    try:
-        WebDriverWait(driver, 5).until(
-            EC.element_to_be_clickable((By.ID, "onetrust-accept-btn-handler"))
-        ).click()
-    except Exception:
-        pass  # cookie prompt absent
-
-    try:
-        WebDriverWait(driver, 3).until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, "#out-of-stock-zip-code + a"))
-        ).click()
-
-        zip_field = WebDriverWait(driver, 3).until(
-            EC.presence_of_element_located((By.ID, "eddZipCodeField"))
-        )
-        zip_field.clear()
-        zip_field.send_keys("S7T 0J6")
-
-        WebDriverWait(driver, 3).until(
-            EC.element_to_be_clickable((By.ID, "edd-check-button"))
-        ).click()
-        sleep(2)
-    except Exception as e:
-        log.warning(f"Postal code flow skipped: {e}")
-
-    try:
-        price_el = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "#pull-right-price .value"))
-        )
-        price_text = price_el.text.replace(",", "").strip()
-        current_price = float(price_text)
-        log.info(f"Current price: ${current_price:.2f}")
-    except Exception as e:
-        log.error(f"Could not extract price: {e}")
+    if resp.status_code != 200:
+        log.error(f"Unexpected status {resp.status_code}:\n{resp.text[:500]}")
         return
+
+    soup = BeautifulSoup(resp.text, "html.parser")
+    price_el = soup.select_one("#pull-right-price .value")
+
+    if not price_el:
+        log.error("Price element not found in page HTML")
+        log.info(f"Page snippet:\n{resp.text[:2000]}")
+        return
+
+    price_text = price_el.get_text(strip=True).replace(",", "")
+    current_price = float(price_text)
+    log.info(f"Current price: ${current_price:.2f}")
 
     conn = _db_conn()
     cur = conn.cursor()
@@ -173,20 +135,5 @@ def scrape_product(product):
         conn.close()
 
 
-try:
-    # Warm up session on homepage so Akamai sets cookies before hitting product pages
-    log.info("Warming up session on costco.ca homepage...")
-    driver.get("https://www.costco.ca")
-    sleep(3)
-    try:
-        WebDriverWait(driver, 5).until(
-            EC.element_to_be_clickable((By.ID, "onetrust-accept-btn-handler"))
-        ).click()
-        sleep(1)
-    except Exception:
-        pass
-
-    for product in PRODUCTS:
-        scrape_product(product)
-finally:
-    driver.quit()
+for product in PRODUCTS:
+    scrape_product(product)
