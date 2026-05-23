@@ -3,7 +3,7 @@ name: Home Depot Scraper
 on:
   schedule:
     - cron: "0 * * * *"          # hourly baseline (all week)
-    - cron: "*/10 16-20 * * 1"   # every 10 min, 10am–1pm on Mondays (16–20 UTC covers UTC-6 summer + UTC-7 winter)
+    - cron: "*/10 16-19 * * 1"   # every 10 min, 10am–1pm on Mondays (UTC-6 year-round = 16–19 UTC)
   workflow_dispatch:
 
 jobs:
