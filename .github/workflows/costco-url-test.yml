@@ -13,76 +13,59 @@ jobs:
       - name: Install dependencies
         run: |
           python3 -m venv ~/Projects/pyppeteer-scraper/venv
-          ~/Projects/pyppeteer-scraper/venv/bin/pip install playwright beautifulsoup4
-          sudo apt-get install -y xvfb
+          ~/Projects/pyppeteer-scraper/venv/bin/pip install curl-cffi beautifulsoup4
 
-      - name: Copy Chromium profile to avoid lock conflicts
+      - name: Check PriceHipster for Costco product
         run: |
-          rm -rf /tmp/costco-chrome-profile
-          mkdir -p /tmp/costco-chrome-profile/Default
-          # Copy cookies and local state (contains Akamai _abck cookie)
-          for f in Cookies "Local State" Preferences; do
-            src="$HOME/.config/chromium/Default/$f"
-            [ -f "$src" ] && cp "$src" "/tmp/costco-chrome-profile/Default/$f" || true
-          done
-          cp "$HOME/.config/chromium/Local State" /tmp/costco-chrome-profile/ 2>/dev/null || true
-          echo "Profile copy done"
-          ls -la /tmp/costco-chrome-profile/Default/
-
-      - name: Test Costco URL with real browser profile
-        env:
-          DISPLAY: ":99"
-        run: |
-          Xvfb :99 -screen 0 1920x1080x24 &
-          sleep 1
           ~/Projects/pyppeteer-scraper/venv/bin/python - <<'EOF'
-          import os
-          from playwright.sync_api import sync_playwright
+          from curl_cffi import requests as curl_requests
           from bs4 import BeautifulSoup
           from time import sleep
 
-          with sync_playwright() as p:
-              context = p.chromium.launch_persistent_context(
-                  user_data_dir="/tmp/costco-chrome-profile",
-                  headless=False,
-                  executable_path="/usr/bin/chromium-browser",
-                  args=[
-                      "--no-sandbox",
-                      "--disable-dev-shm-usage",
-                      "--disable-blink-features=AutomationControlled",
-                  ],
-                  env={"DISPLAY": os.environ.get("DISPLAY", ":99")},
-                  user_agent="Mozilla/5.0 (X11; Linux aarch64) AppleWebKit/537.36 (KHTML, like Gecko) Chromium/130.0.0.0 Chrome/130.0.0.0 Safari/537.36",
-                  locale="en-CA",
-                  viewport={"width": 1920, "height": 1080},
-                  extra_http_headers={"Accept-Language": "en-CA,en;q=0.9"},
-              )
-              context.add_init_script("""
-                  Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
-                  delete navigator.__proto__.webdriver;
-                  window.chrome = {runtime: {}};
-              """)
+          session = curl_requests.Session()
+          HEADERS = {
+              "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
+              "Accept-Language": "en-CA,en;q=0.9",
+              "Accept-Encoding": "gzip, deflate, br",
+          }
 
-              page = context.new_page()
+          def get(label, url):
+              print(f"\n=== {label} ===")
+              print(f"URL: {url}")
+              r = session.get(url, impersonate="chrome120", headers=HEADERS, timeout=15)
+              print(f"Status: {r.status_code}  CT: {r.headers.get('content-type','')[:60]}")
+              return r
 
-              url = "https://www.costco.ca/aiden-ivy-sereen-6-piece-fabric-sectional.product.4000207338.html?langId=-24&province=SK&sh=true&nf=true"
-              print(f"Navigating directly to product (using real profile cookies)...")
-              page.goto(url, wait_until="domcontentloaded", timeout=30000)
-              print(f"Title after load: {page.title()!r}")
+          # --- PriceHipster ---
+          r = get("PriceHipster search by product ID", "https://www.pricehipster.com/search?q=4000207338")
+          if r.status_code == 200:
+              soup = BeautifulSoup(r.text, "html.parser")
+              results = soup.select(".product, .product-item, article, [class*='product']")
+              print(f"Product elements found: {len(results)}")
+              print(r.text[:2000])
+          sleep(1)
 
-              if page.title() == "":
-                  print("Akamai challenge page — waiting up to 30s for it to solve...")
-                  sleep(5)
-                  print(f"Title after 5s: {page.title()!r}")
+          r = get("PriceHipster search by name", "https://www.pricehipster.com/search?q=aiden+ivy+sereen+sectional+costco")
+          if r.status_code == 200:
+              print(r.text[:2000])
+          sleep(1)
 
-              try:
-                  price_el = page.wait_for_selector("#pull-right-price .value", timeout=30000)
-                  price = price_el.inner_text().strip()
-                  print(f"SUCCESS — price found: ${price}")
-              except Exception as e:
-                  print(f"WARN — price element never appeared: {e}")
-                  print(f"Final title: {page.title()!r}")
-                  print(page.content()[:1500])
+          # --- ShopBot.ca ---
+          r = get("ShopBot search", "https://www.shopbot.ca/search/?q=aiden+ivy+sereen+sectional&store=Costco")
+          if r.status_code == 200:
+              soup = BeautifulSoup(r.text, "html.parser")
+              print(r.text[:2000])
+          sleep(1)
 
-              context.close()
+          # --- Direct Costco product via curl-cffi GET (sanity check) ---
+          r = get("Costco product page (curl-cffi)",
+              "https://www.costco.ca/aiden-ivy-sereen-6-piece-fabric-sectional.product.4000207338.html?langId=-24&province=SK&sh=true&nf=true")
+          if r.status_code == 200:
+              soup = BeautifulSoup(r.text, "html.parser")
+              price_el = soup.select_one("#pull-right-price .value")
+              title = soup.title.string if soup.title else "no title"
+              print(f"Title: {title}")
+              print(f"Price element: {price_el}")
+              if not price_el:
+                  print(r.text[:500])
           EOF
