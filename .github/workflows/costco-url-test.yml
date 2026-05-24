@@ -13,85 +13,76 @@ jobs:
       - name: Install dependencies
         run: |
           python3 -m venv ~/Projects/pyppeteer-scraper/venv
-          ~/Projects/pyppeteer-scraper/venv/bin/pip install curl-cffi beautifulsoup4
+          ~/Projects/pyppeteer-scraper/venv/bin/pip install playwright beautifulsoup4
+          sudo apt-get install -y xvfb
 
-      - name: Probe Costco API
+      - name: Copy Chromium profile to avoid lock conflicts
         run: |
+          rm -rf /tmp/costco-chrome-profile
+          mkdir -p /tmp/costco-chrome-profile/Default
+          # Copy cookies and local state (contains Akamai _abck cookie)
+          for f in Cookies "Local State" Preferences; do
+            src="$HOME/.config/chromium/Default/$f"
+            [ -f "$src" ] && cp "$src" "/tmp/costco-chrome-profile/Default/$f" || true
+          done
+          cp "$HOME/.config/chromium/Local State" /tmp/costco-chrome-profile/ 2>/dev/null || true
+          echo "Profile copy done"
+          ls -la /tmp/costco-chrome-profile/Default/
+
+      - name: Test Costco URL with real browser profile
+        env:
+          DISPLAY: ":99"
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 &
+          sleep 1
           ~/Projects/pyppeteer-scraper/venv/bin/python - <<'EOF'
-          from curl_cffi import requests as curl_requests
+          import os
+          from playwright.sync_api import sync_playwright
+          from bs4 import BeautifulSoup
           from time import sleep
-          import json
 
-          PRODUCT_ID = "4000207338"
-          session = curl_requests.Session()
+          with sync_playwright() as p:
+              context = p.chromium.launch_persistent_context(
+                  user_data_dir="/tmp/costco-chrome-profile",
+                  headless=False,
+                  executable_path="/usr/bin/chromium-browser",
+                  args=[
+                      "--no-sandbox",
+                      "--disable-dev-shm-usage",
+                      "--disable-blink-features=AutomationControlled",
+                  ],
+                  env={"DISPLAY": os.environ.get("DISPLAY", ":99")},
+                  user_agent="Mozilla/5.0 (X11; Linux aarch64) AppleWebKit/537.36 (KHTML, like Gecko) Chromium/130.0.0.0 Chrome/130.0.0.0 Safari/537.36",
+                  locale="en-CA",
+                  viewport={"width": 1920, "height": 1080},
+                  extra_http_headers={"Accept-Language": "en-CA,en;q=0.9"},
+              )
+              context.add_init_script("""
+                  Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+                  delete navigator.__proto__.webdriver;
+                  window.chrome = {runtime: {}};
+              """)
 
-          HEADERS = {
-              "Accept-Language": "en-CA,en;q=0.9",
-              "Accept-Encoding": "gzip, deflate, br",
-              "Referer": "https://www.costco.ca/",
-              "Sec-Fetch-Site": "same-origin",
-          }
+              page = context.new_page()
 
-          def probe(label, url, accept="application/json"):
-              print(f"\n=== {label} ===")
+              url = "https://www.costco.ca/aiden-ivy-sereen-6-piece-fabric-sectional.product.4000207338.html?langId=-24&province=SK&sh=true&nf=true"
+              print(f"Navigating directly to product (using real profile cookies)...")
+              page.goto(url, wait_until="domcontentloaded", timeout=30000)
+              print(f"Title after load: {page.title()!r}")
+
+              if page.title() == "":
+                  print("Akamai challenge page — waiting up to 30s for it to solve...")
+                  sleep(5)
+                  print(f"Title after 5s: {page.title()!r}")
+
               try:
-                  r = session.get(url, impersonate="chrome120", headers={**HEADERS, "Accept": accept}, timeout=10)
-                  ct = r.headers.get("content-type", "")
-                  print(f"Status: {r.status_code}  CT: {ct[:60]}")
-                  body = r.text
-                  if r.status_code == 200:
-                      if "application/json" in ct or body.strip().startswith("{") or body.strip().startswith("["):
-                          try:
-                              data = json.loads(body)
-                              print(f"JSON keys: {list(data.keys()) if isinstance(data, dict) else type(data)}")
-                              # Look for price
-                              s = json.dumps(data)
-                              for key in ["price","Price","finalPrice","salePrice","currentPrice"]:
-                                  idx = s.lower().find(f'"{key.lower()}"')
-                                  if idx >= 0:
-                                      print(f"  >> Found '{key}': {s[idx:idx+80]}")
-                                      break
-                          except Exception:
-                              print(f"  Body: {body[:200]}")
-                      else:
-                          if "Access Denied" in body:
-                              print("  >> Akamai block")
-                          elif "Page not found" in body or "404" in body[:50]:
-                              print("  >> 404 page")
-                          elif "pull-right-price" in body:
-                              from bs4 import BeautifulSoup
-                              soup = BeautifulSoup(body, "html.parser")
-                              el = soup.select_one("#pull-right-price .value")
-                              print(f"  >> HTML price: {el}")
-                          else:
-                              print(f"  Body[:200]: {body[:200]}")
-                  else:
-                      if "Access Denied" in body:
-                          print("  >> Akamai block")
-                      elif "Page not found" in body:
-                          print("  >> 404 from Costco server (API path OK, wrong site ID)")
-                      else:
-                          print(f"  Body[:200]: {body[:200]}")
+                  price_el = page.wait_for_selector("#pull-right-price .value", timeout=30000)
+                  price = price_el.inner_text().strip()
+                  print(f"SUCCESS — price found: ${price}")
               except Exception as e:
-                  print(f"  Error: {e}")
-              sleep(0.5)
+                  print(f"WARN — price element never appeared: {e}")
+                  print(f"Final title: {page.title()!r}")
+                  print(page.content()[:1500])
 
-          # Warm up
-          r = session.get("https://www.costco.ca", impersonate="chrome120",
-              headers={**HEADERS, "Accept": "text/html,*/*;q=0.8", "Sec-Fetch-Site": "none"})
-          print(f"Homepage: {r.status_code}")
-          sleep(2)
-
-          # 1. Hybris base site discovery
-          probe("basesites discovery", "https://www.costco.ca/rest/v2/basesites")
-          probe("OCC v1 basesites",    "https://www.costco.ca/rest/v1/basesites")
-
-          # 2. Try plausible base site IDs
-          for site_id in ["costco", "costco-ca", "ca", "CA", "en", "costco_ca", "CostcoCA", "costcoCA"]:
-              probe(f"site={site_id}", f"https://www.costco.ca/rest/v2/{site_id}/products/{PRODUCT_ID}?fields=FULL&lang=en&curr=CAD&langId=-24&province=SK")
-
-          # 3. Alternative API patterns
-          probe("catalog API",      f"https://www.costco.ca/CatalogController?productId={PRODUCT_ID}&storeId=25001&langId=-24")
-          probe("search by ID",     f"https://www.costco.ca/ProductSearchController?N=4294959756&Ntt={PRODUCT_ID}&catalogId=29501&langId=-24&storeId=25001&pageSize=1")
-          probe("price endpoint",   f"https://www.costco.ca/rest/v2/price?productIds={PRODUCT_ID}&lang=en&curr=CAD")
+              context.close()
           EOF
