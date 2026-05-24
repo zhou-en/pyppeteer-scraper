@@ -14,21 +14,26 @@ jobs:
         run: |
           python3 -m venv ~/Projects/pyppeteer-scraper/venv
           ~/Projects/pyppeteer-scraper/venv/bin/pip install playwright beautifulsoup4
-
-      - name: Install Playwright Chromium
-        run: ~/Projects/pyppeteer-scraper/venv/bin/playwright install chromium --with-deps
+          sudo apt-get install -y xvfb
 
       - name: Test Costco URL access
+        env:
+          DISPLAY: ":99"
         run: |
+          Xvfb :99 -screen 0 1920x1080x24 &
+          sleep 1
           ~/Projects/pyppeteer-scraper/venv/bin/python - <<'EOF'
+          import os
           from playwright.sync_api import sync_playwright
           from bs4 import BeautifulSoup
           from time import sleep
 
           with sync_playwright() as p:
               browser = p.chromium.launch(
-                  headless=True,
-                  args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--disable-http2"],
+                  headless=False,
+                  executable_path="/usr/bin/chromium-browser",
+                  args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+                  env={"DISPLAY": os.environ.get("DISPLAY", ":99")},
               )
               context = browser.new_context(
                   user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -38,10 +43,10 @@ jobs:
               )
               page = context.new_page()
 
-              print("Loading homepage and letting Akamai JS run...")
-              page.goto("https://www.costco.ca", wait_until="networkidle", timeout=30000)
+              print("Loading homepage...")
+              page.goto("https://www.costco.ca", wait_until="domcontentloaded", timeout=30000)
               print(f"Homepage title: {page.title()}")
-              sleep(3)
+              sleep(4)  # let Akamai sensor JS run
 
               try:
                   page.click("#onetrust-accept-btn-handler", timeout=5000)
@@ -51,16 +56,17 @@ jobs:
                   print("No cookie consent prompt")
 
               url = "https://www.costco.ca/aiden-ivy-sereen-6-piece-fabric-sectional.product.4000207338.html?langId=-24&province=SK&sh=true&nf=true"
-              print(f"Navigating to product: {url}")
-              page.goto(url, wait_until="networkidle", timeout=30000)
+              print(f"Navigating to product...")
+              page.goto(url, wait_until="domcontentloaded", timeout=30000)
               print(f"Product title: {page.title()}")
+              sleep(3)
 
               content = page.content()
               soup = BeautifulSoup(content, "html.parser")
 
               if "Access Denied" in page.title():
                   print("BLOCKED — Access Denied")
-                  print(content[:1000])
+                  print(content[:800])
               else:
                   price_el = soup.select_one("#pull-right-price .value")
                   if price_el:
