@@ -13,78 +13,77 @@ jobs:
       - name: Install dependencies
         run: |
           python3 -m venv ~/Projects/pyppeteer-scraper/venv
-          ~/Projects/pyppeteer-scraper/venv/bin/pip install playwright beautifulsoup4
-          sudo apt-get install -y xvfb
+          ~/Projects/pyppeteer-scraper/venv/bin/pip install curl-cffi beautifulsoup4
 
-      - name: Test Costco URL access
-        env:
-          DISPLAY: ":99"
+      - name: Probe Costco API endpoints
         run: |
-          Xvfb :99 -screen 0 1920x1080x24 &
-          sleep 1
           ~/Projects/pyppeteer-scraper/venv/bin/python - <<'EOF'
-          import os
-          from playwright.sync_api import sync_playwright
+          from curl_cffi import requests as curl_requests
           from bs4 import BeautifulSoup
           from time import sleep
 
-          with sync_playwright() as p:
-              browser = p.chromium.launch(
-                  headless=False,
-                  executable_path="/usr/bin/chromium-browser",
-                  args=["--no-sandbox", "--disable-dev-shm-usage"],
-                  env={"DISPLAY": os.environ.get("DISPLAY", ":99")},
-              )
-              context = browser.new_context(
-                  user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                  locale="en-CA",
-                  viewport={"width": 1920, "height": 1080},
-                  extra_http_headers={"Accept-Language": "en-CA,en;q=0.9"},
-              )
-              context.add_init_script("""
-                  Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
-                  Object.defineProperty(navigator, 'plugins', {get: () => [1,2,3,4,5]});
-                  window.chrome = {runtime: {}};
-              """)
-              page = context.new_page()
+          PRODUCT_ID = "4000207338"
+          BASE_HEADERS = {
+              "Accept-Language": "en-CA,en;q=0.9",
+              "Accept-Encoding": "gzip, deflate, br",
+              "Cache-Control": "no-cache",
+              "Sec-Fetch-Site": "none",
+              "Sec-Fetch-Mode": "navigate",
+              "Sec-Fetch-Dest": "document",
+              "Upgrade-Insecure-Requests": "1",
+          }
 
-              print("Loading homepage...")
-              page.goto("https://www.costco.ca", wait_until="domcontentloaded", timeout=30000)
-              print(f"Homepage title: {page.title()}")
-              sleep(4)  # let Akamai sensor JS run
+          session = curl_requests.Session()
 
+          # Warm up — we know homepage returns 200
+          print("=== Homepage warmup ===")
+          r = session.get(
+              "https://www.costco.ca",
+              impersonate="chrome120",
+              headers={**BASE_HEADERS, "Accept": "text/html,application/xhtml+xml,*/*;q=0.8"},
+          )
+          print(f"Homepage: {r.status_code}")
+          sleep(2)
+
+          # Probe candidate endpoints
+          candidates = [
+              # Hybris REST API (standard SAP Commerce)
+              f"https://www.costco.ca/rest/v2/canada/products/{PRODUCT_ID}?fields=FULL&lang=en&curr=CAD&langId=-24&province=SK",
+              f"https://www.costco.ca/rest/v2/costcoca/products/{PRODUCT_ID}?fields=FULL&lang=en&curr=CAD",
+              # Ajax product view
+              f"https://www.costco.ca/AjaxProductView?productId={PRODUCT_ID}&storeId=25001&langId=-24&catalogId=29501",
+              # Product page with JSON accept header
+              f"https://www.costco.ca/aiden-ivy-sereen-6-piece-fabric-sectional.product.{PRODUCT_ID}.html?langId=-24&province=SK&sh=true&nf=true",
+          ]
+
+          for url in candidates:
+              print(f"\n=== {url[:80]} ===")
+              accept = "application/json" if "rest" in url or "Ajax" in url else "text/html,application/xhtml+xml,*/*;q=0.8"
+              headers = {
+                  **BASE_HEADERS,
+                  "Accept": accept,
+                  "Referer": "https://www.costco.ca/",
+                  "Sec-Fetch-Site": "same-origin",
+              }
               try:
-                  page.click("#onetrust-accept-btn-handler", timeout=5000)
-                  print("Cookie consent accepted")
-                  sleep(1)
-              except Exception:
-                  print("No cookie consent prompt")
-
-              url = "https://www.costco.ca/aiden-ivy-sereen-6-piece-fabric-sectional.product.4000207338.html?langId=-24&province=SK&sh=true&nf=true"
-              print(f"Navigating to product...")
-              page.goto(url, wait_until="domcontentloaded", timeout=30000)
-              print(f"Initial title: {page.title()!r} — simulating user behaviour for Akamai challenge...")
-
-              # Simulate mouse movement so Akamai's behavioural sensor accumulates data
-              import random
-              for _ in range(25):
-                  page.mouse.move(random.randint(100, 1800), random.randint(100, 900))
-                  sleep(0.2)
-              page.keyboard.press("End")
-              sleep(0.5)
-              page.keyboard.press("Home")
-
-              # Akamai challenge auto-solves via JS and triggers location.reload()
-              # Wait up to 60s for the price element to appear after the reload
-              try:
-                  price_el = page.wait_for_selector("#pull-right-price .value", timeout=60000)
-                  price = price_el.inner_text().strip()
-                  print(f"SUCCESS — price found: ${price}")
+                  r = session.get(url, impersonate="chrome120", headers=headers, timeout=15)
+                  print(f"Status: {r.status_code}  Content-Type: {r.headers.get('content-type','')[:60]}")
+                  if r.status_code == 200:
+                      text = r.text
+                      # Look for price in response
+                      if '"price"' in text or '"Price"' in text or '"value"' in text:
+                          print(">>> Contains price-like fields — snippet:")
+                          idx = max(text.lower().find('"price"'), text.lower().find('"value"'))
+                          print(text[max(0,idx-50):idx+200])
+                      elif "pull-right-price" in text:
+                          soup = BeautifulSoup(text, "html.parser")
+                          price_el = soup.select_one("#pull-right-price .value")
+                          print(f">>> HTML price element: {price_el}")
+                      else:
+                          print(f">>> First 300 chars: {text[:300]}")
+                  else:
+                      print(f">>> Body: {r.text[:300]}")
               except Exception as e:
-                  print(f"WARN — price element never appeared: {e}")
-                  content = page.content()
-                  print(f"Final title: {page.title()!r}")
-                  print(content[:2000])
-
-              browser.close()
+                  print(f"Error: {e}")
+              sleep(1)
           EOF
