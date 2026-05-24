@@ -32,7 +32,7 @@ jobs:
               browser = p.chromium.launch(
                   headless=False,
                   executable_path="/usr/bin/chromium-browser",
-                  args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+                  args=["--no-sandbox", "--disable-dev-shm-usage"],
                   env={"DISPLAY": os.environ.get("DISPLAY", ":99")},
               )
               context = browser.new_context(
@@ -41,6 +41,11 @@ jobs:
                   viewport={"width": 1920, "height": 1080},
                   extra_http_headers={"Accept-Language": "en-CA,en;q=0.9"},
               )
+              context.add_init_script("""
+                  Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+                  Object.defineProperty(navigator, 'plugins', {get: () => [1,2,3,4,5]});
+                  window.chrome = {runtime: {}};
+              """)
               page = context.new_page()
 
               print("Loading homepage...")
@@ -58,12 +63,21 @@ jobs:
               url = "https://www.costco.ca/aiden-ivy-sereen-6-piece-fabric-sectional.product.4000207338.html?langId=-24&province=SK&sh=true&nf=true"
               print(f"Navigating to product...")
               page.goto(url, wait_until="domcontentloaded", timeout=30000)
-              print(f"Initial title: {page.title()!r} — waiting for Akamai challenge to solve...")
+              print(f"Initial title: {page.title()!r} — simulating user behaviour for Akamai challenge...")
+
+              # Simulate mouse movement so Akamai's behavioural sensor accumulates data
+              import random
+              for _ in range(25):
+                  page.mouse.move(random.randint(100, 1800), random.randint(100, 900))
+                  sleep(0.2)
+              page.keyboard.press("End")
+              sleep(0.5)
+              page.keyboard.press("Home")
 
               # Akamai challenge auto-solves via JS and triggers location.reload()
-              # Wait for the price element to appear after the reload
+              # Wait up to 60s for the price element to appear after the reload
               try:
-                  price_el = page.wait_for_selector("#pull-right-price .value", timeout=30000)
+                  price_el = page.wait_for_selector("#pull-right-price .value", timeout=60000)
                   price = price_el.inner_text().strip()
                   print(f"SUCCESS — price found: ${price}")
               except Exception as e:
