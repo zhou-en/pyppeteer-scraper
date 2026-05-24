@@ -15,75 +15,83 @@ jobs:
           python3 -m venv ~/Projects/pyppeteer-scraper/venv
           ~/Projects/pyppeteer-scraper/venv/bin/pip install curl-cffi beautifulsoup4
 
-      - name: Probe Costco API endpoints
+      - name: Probe Costco API
         run: |
           ~/Projects/pyppeteer-scraper/venv/bin/python - <<'EOF'
           from curl_cffi import requests as curl_requests
-          from bs4 import BeautifulSoup
           from time import sleep
+          import json
 
           PRODUCT_ID = "4000207338"
-          BASE_HEADERS = {
-              "Accept-Language": "en-CA,en;q=0.9",
-              "Accept-Encoding": "gzip, deflate, br",
-              "Cache-Control": "no-cache",
-              "Sec-Fetch-Site": "none",
-              "Sec-Fetch-Mode": "navigate",
-              "Sec-Fetch-Dest": "document",
-              "Upgrade-Insecure-Requests": "1",
-          }
-
           session = curl_requests.Session()
 
-          # Warm up — we know homepage returns 200
-          print("=== Homepage warmup ===")
-          r = session.get(
-              "https://www.costco.ca",
-              impersonate="chrome120",
-              headers={**BASE_HEADERS, "Accept": "text/html,application/xhtml+xml,*/*;q=0.8"},
-          )
+          HEADERS = {
+              "Accept-Language": "en-CA,en;q=0.9",
+              "Accept-Encoding": "gzip, deflate, br",
+              "Referer": "https://www.costco.ca/",
+              "Sec-Fetch-Site": "same-origin",
+          }
+
+          def probe(label, url, accept="application/json"):
+              print(f"\n=== {label} ===")
+              try:
+                  r = session.get(url, impersonate="chrome120", headers={**HEADERS, "Accept": accept}, timeout=10)
+                  ct = r.headers.get("content-type", "")
+                  print(f"Status: {r.status_code}  CT: {ct[:60]}")
+                  body = r.text
+                  if r.status_code == 200:
+                      if "application/json" in ct or body.strip().startswith("{") or body.strip().startswith("["):
+                          try:
+                              data = json.loads(body)
+                              print(f"JSON keys: {list(data.keys()) if isinstance(data, dict) else type(data)}")
+                              # Look for price
+                              s = json.dumps(data)
+                              for key in ["price","Price","finalPrice","salePrice","currentPrice"]:
+                                  idx = s.lower().find(f'"{key.lower()}"')
+                                  if idx >= 0:
+                                      print(f"  >> Found '{key}': {s[idx:idx+80]}")
+                                      break
+                          except Exception:
+                              print(f"  Body: {body[:200]}")
+                      else:
+                          if "Access Denied" in body:
+                              print("  >> Akamai block")
+                          elif "Page not found" in body or "404" in body[:50]:
+                              print("  >> 404 page")
+                          elif "pull-right-price" in body:
+                              from bs4 import BeautifulSoup
+                              soup = BeautifulSoup(body, "html.parser")
+                              el = soup.select_one("#pull-right-price .value")
+                              print(f"  >> HTML price: {el}")
+                          else:
+                              print(f"  Body[:200]: {body[:200]}")
+                  else:
+                      if "Access Denied" in body:
+                          print("  >> Akamai block")
+                      elif "Page not found" in body:
+                          print("  >> 404 from Costco server (API path OK, wrong site ID)")
+                      else:
+                          print(f"  Body[:200]: {body[:200]}")
+              except Exception as e:
+                  print(f"  Error: {e}")
+              sleep(0.5)
+
+          # Warm up
+          r = session.get("https://www.costco.ca", impersonate="chrome120",
+              headers={**HEADERS, "Accept": "text/html,*/*;q=0.8", "Sec-Fetch-Site": "none"})
           print(f"Homepage: {r.status_code}")
           sleep(2)
 
-          # Probe candidate endpoints
-          candidates = [
-              # Hybris REST API (standard SAP Commerce)
-              f"https://www.costco.ca/rest/v2/canada/products/{PRODUCT_ID}?fields=FULL&lang=en&curr=CAD&langId=-24&province=SK",
-              f"https://www.costco.ca/rest/v2/costcoca/products/{PRODUCT_ID}?fields=FULL&lang=en&curr=CAD",
-              # Ajax product view
-              f"https://www.costco.ca/AjaxProductView?productId={PRODUCT_ID}&storeId=25001&langId=-24&catalogId=29501",
-              # Product page with JSON accept header
-              f"https://www.costco.ca/aiden-ivy-sereen-6-piece-fabric-sectional.product.{PRODUCT_ID}.html?langId=-24&province=SK&sh=true&nf=true",
-          ]
+          # 1. Hybris base site discovery
+          probe("basesites discovery", "https://www.costco.ca/rest/v2/basesites")
+          probe("OCC v1 basesites",    "https://www.costco.ca/rest/v1/basesites")
 
-          for url in candidates:
-              print(f"\n=== {url[:80]} ===")
-              accept = "application/json" if "rest" in url or "Ajax" in url else "text/html,application/xhtml+xml,*/*;q=0.8"
-              headers = {
-                  **BASE_HEADERS,
-                  "Accept": accept,
-                  "Referer": "https://www.costco.ca/",
-                  "Sec-Fetch-Site": "same-origin",
-              }
-              try:
-                  r = session.get(url, impersonate="chrome120", headers=headers, timeout=15)
-                  print(f"Status: {r.status_code}  Content-Type: {r.headers.get('content-type','')[:60]}")
-                  if r.status_code == 200:
-                      text = r.text
-                      # Look for price in response
-                      if '"price"' in text or '"Price"' in text or '"value"' in text:
-                          print(">>> Contains price-like fields — snippet:")
-                          idx = max(text.lower().find('"price"'), text.lower().find('"value"'))
-                          print(text[max(0,idx-50):idx+200])
-                      elif "pull-right-price" in text:
-                          soup = BeautifulSoup(text, "html.parser")
-                          price_el = soup.select_one("#pull-right-price .value")
-                          print(f">>> HTML price element: {price_el}")
-                      else:
-                          print(f">>> First 300 chars: {text[:300]}")
-                  else:
-                      print(f">>> Body: {r.text[:300]}")
-              except Exception as e:
-                  print(f"Error: {e}")
-              sleep(1)
+          # 2. Try plausible base site IDs
+          for site_id in ["costco", "costco-ca", "ca", "CA", "en", "costco_ca", "CostcoCA", "costcoCA"]:
+              probe(f"site={site_id}", f"https://www.costco.ca/rest/v2/{site_id}/products/{PRODUCT_ID}?fields=FULL&lang=en&curr=CAD&langId=-24&province=SK")
+
+          # 3. Alternative API patterns
+          probe("catalog API",      f"https://www.costco.ca/CatalogController?productId={PRODUCT_ID}&storeId=25001&langId=-24")
+          probe("search by ID",     f"https://www.costco.ca/ProductSearchController?N=4294959756&Ntt={PRODUCT_ID}&catalogId=29501&langId=-24&storeId=25001&pageSize=1")
+          probe("price endpoint",   f"https://www.costco.ca/rest/v2/price?productIds={PRODUCT_ID}&lang=en&curr=CAD")
           EOF
